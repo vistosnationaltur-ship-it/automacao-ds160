@@ -63,6 +63,12 @@ RELACIONAMENTO_EN = {
     "Amigo(a)*": "FRIEND",
     "Namorado(a)": "OTHER",
     "Parceiro de trabalho / Negócios": "BUSINESS ASSOCIATE",
+    # Grafias antigas que existiam antes de padronizar os 5 campos de
+    # parentesco no ds160-rascunho em 2026-08-23 (cada vaga de
+    # acompanhante tinha opções digitadas ligeiramente diferentes) —
+    # mantidas aqui como rede de segurança extra.
+    "Filho/Filha": "CHILD",
+    "Avô/Avó": "OTHER RELATIVE",
 }
 
 # Relacionamento com o contato nos EUA (opções reais do campo 161 no

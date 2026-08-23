@@ -1388,20 +1388,31 @@ def gravar_application_id_no_flow(flow_cliente_id, application_id):
         print(f"⚠️ Não consegui falar com o Flow ({e}). Anote manualmente: Application ID = {application_id}")
 
 
-def capturar_application_id(cliente):
-    """Pergunta ao operador o Application ID (já existe desde o início da
-    aplicação no CEAC — aparece no topo de toda tela — não depende de
-    enviar o DS-160). O envio final ("Sign and Submit") é feito depois,
+def capturar_application_id(cliente, page=None):
+    """Lê o Application ID direto do topo da tela do CEAC (span
+    #ctl00_lblAppID — existe desde o início da aplicação, não depende de
+    enviar o DS-160). Se não conseguir ler da tela, pede pro operador
+    colar manualmente. O envio final ("Sign and Submit") é feito depois,
     pela consultora responsável pela revisão, nunca pelo robô nem
     necessariamente pelo operador que preencheu. Se o cliente estiver
     ligado a uma ficha no Flow, grava lá automaticamente."""
-    print("\n" + "=" * 60)
-    print("📋 Cole aqui o Application ID que aparece no topo da tela do CEAC")
-    print("   (já existe desde o início da aplicação, não precisa ter enviado nada).")
-    print("=" * 60)
-    application_id = input("Application ID (ou ENTER para pular): ").strip()
-    if not application_id:
-        return
+    application_id = ""
+    if page is not None:
+        try:
+            application_id = page.locator("#ctl00_lblAppID").first.inner_text(timeout=3000).strip()
+        except Exception:
+            application_id = ""
+
+    if application_id:
+        print(f"\n📋 Application ID capturado da tela: {application_id}")
+    else:
+        print("\n" + "=" * 60)
+        print("📋 Não consegui ler o Application ID da tela — cole aqui o número")
+        print("   que aparece no topo da página (não precisa ter enviado nada).")
+        print("=" * 60)
+        application_id = input("Application ID (ou ENTER para pular): ").strip()
+        if not application_id:
+            return
 
     flow_cliente_id = cliente.get("_flow_cliente_id")
     if flow_cliente_id:
@@ -1556,7 +1567,7 @@ def preencher_ds160():
             "DS-160 agora. A revisão final e o envio ficam por conta da consultora depois. "
             "Aperte ENTER aqui pra registrar o Application ID no Flow (ou 'listar')... ",
         )
-        capturar_application_id(cliente)
+        capturar_application_id(cliente, page)
 
         _perguntar(page, "\n👉 Aperte ENTER para encerrar a automação e fechar o navegador (ou 'listar')... ")
         browser.close()

@@ -760,6 +760,16 @@ def preencher_passport(page, cliente):
         preencher_texto(page, "input[id$='tbxPPT_EXPIREYear']", ano)
 
     marcar_sim_nao(page, "rblLOST_PPT_IND", cliente.get('passaporte_perdido_roubado', False))
+    if cliente.get('passaporte_perdido_roubado'):
+        time.sleep(1.5)  # rblLOST_PPT_IND dispara postback pra revelar os campos abaixo
+        numero_perdido = cliente.get('passaporte_perdido_numero', '')
+        if numero_perdido and numero_perdido != "a confirmar":
+            preencher_texto(page, "input[id$='dtlLostPPT_ctl00_tbxLOST_PPT_NUM']", numero_perdido)
+        else:
+            marcar_checkbox(page, "input[id$='dtlLostPPT_ctl00_cbxLOST_PPT_NUM_UNKN_IND']", forcar=True)
+        selecionar_dropdown(page, "select[id$='dtlLostPPT_ctl00_ddlLOST_PPT_NATL']", cliente.get('passaporte_perdido_pais', 'BRAZIL'))
+        if cliente.get('passaporte_perdido_explicacao'):
+            preencher_texto(page, "textarea[id$='dtlLostPPT_ctl00_tbxLOST_PPT_EXPL']", cliente['passaporte_perdido_explicacao'])
 
     print("✅ Página Passport Information preenchida (confira os avisos ⚠️ acima, se houver)!")
 

@@ -385,6 +385,11 @@ def mapear_endereco_contato(respostas):
     dados["passaporte_data_emissao"] = data_ddmmaaaa(respostas, 150)
     dados["passaporte_data_validade"] = data_ddmmaaaa(respostas, 151)
     dados["passaporte_perdido_roubado"] = booleano(respostas, 152)
+    if dados["passaporte_perdido_roubado"]:
+        dados["passaporte_perdido_numero"] = texto(respostas, 153)
+        pais_perdido = texto_opcional(respostas, 154, "BRASIL")
+        dados["passaporte_perdido_pais"] = "BRAZIL" if pais_perdido.upper() in ("BRASIL", "BRAZIL") else pais_perdido.upper()
+        dados["passaporte_perdido_explicacao"] = texto_opcional(respostas, 155)
 
     dados["tem_contato_eua"] = texto_opcional(respostas, 158).upper().startswith("SIM")
     if dados["tem_contato_eua"]:

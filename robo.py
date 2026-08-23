@@ -140,6 +140,29 @@ def traduzir_status_parente_eua(status_pt):
         return "OTHER/I DON'T KNOW"
     return resultado
 
+
+def traduzir_relacionamento_pagador(texto_pt):
+    """Campo 'Relationship to You' (quem paga a viagem) — opções reais do
+    ddlPayerRelationship confirmadas ao vivo em 2026-08-23: CHILD / PARENT /
+    SPOUSE / OTHER RELATIVE / FRIEND / OTHER. O rascunho web pergunta isso
+    como texto livre (campo 284, ex.: 'esposa', 'meu pai'), então precisa
+    de tradução por palavra-chave em vez de dicionário exato."""
+    if not texto_pt:
+        return "OTHER"
+    texto = remover_acentos(texto_pt).upper()
+    if any(p in texto for p in ("ESPOS", "MARIDO", "CONJUGE", "NAMORAD")):
+        return "SPOUSE"
+    if "FILH" in texto:
+        return "CHILD"
+    if "PAI" in texto or "MAE" in texto:
+        return "PARENT"
+    if "AMIG" in texto:
+        return "FRIEND"
+    if any(p in texto for p in ("IRMA", "IRMAO", "TIO", "TIA", "AVO", "PRIMO", "SOBRINH", "SOGR", "CUNHAD")):
+        return "OTHER RELATIVE"
+    print(f"⚠️ Relacionamento com pagador não reconhecido: '{texto_pt}' — selecione manualmente (padrão OTHER).")
+    return "OTHER"
+
 # Nomes de país em português (sem acento) -> texto exato da opção no site (em inglês)
 PAISES_PT_EN = {
     "INGLATERRA": "UNITED KINGDOM",
@@ -502,7 +525,7 @@ def preencher_travel(page, cliente):
 
         relacionamento = cliente.get('pagador_pessoa_relacionamento', '')
         if relacionamento:
-            selecionar_dropdown(page, "select[id$='ddlPayerRelationship']", relacionamento)
+            selecionar_dropdown(page, "select[id$='ddlPayerRelationship']", traduzir_relacionamento_pagador(relacionamento))
 
         # Endereço da pessoa pagadora é o mesmo do aplicante? (só sabemos
         # dizer "Não" quando o rascunho web trouxe um endereço diferente)

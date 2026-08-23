@@ -1389,13 +1389,15 @@ def gravar_application_id_no_flow(flow_cliente_id, application_id):
 
 
 def capturar_application_id(cliente):
-    """Pergunta ao operador o Application ID depois que ELE MESMO enviar o
-    DS-160 oficialmente no CEAC (o robô nunca envia sozinho — regra de
-    segurança inegociável do projeto). Se o cliente estiver ligado a uma
-    ficha no Flow, grava lá automaticamente."""
+    """Pergunta ao operador o Application ID (já existe desde o início da
+    aplicação no CEAC — aparece no topo de toda tela — não depende de
+    enviar o DS-160). O envio final ("Sign and Submit") é feito depois,
+    pela consultora responsável pela revisão, nunca pelo robô nem
+    necessariamente pelo operador que preencheu. Se o cliente estiver
+    ligado a uma ficha no Flow, grava lá automaticamente."""
     print("\n" + "=" * 60)
-    print("📋 Depois de você mesmo revisar e ENVIAR o DS-160 no site do CEAC,")
-    print("   cole aqui o Application ID que aparece na tela de confirmação.")
+    print("📋 Cole aqui o Application ID que aparece no topo da tela do CEAC")
+    print("   (já existe desde o início da aplicação, não precisa ter enviado nada).")
     print("=" * 60)
     application_id = input("Application ID (ou ENTER para pular): ").strip()
     if not application_id:
@@ -1549,9 +1551,10 @@ def preencher_ds160():
 
         _perguntar(
             page,
-            "\n👉 Preenchimento concluído até o momento! Revise tudo (inclusive Security and "
-            "Background Partes 2-5, ainda não mapeadas), envie o DS-160 você mesmo no site e "
-            "aperte ENTER aqui pra registrar o Application ID (ou 'listar')... ",
+            "\n👉 Preenchimento concluído até o momento! O Application ID já existe desde o "
+            "início da aplicação (aparece no topo de toda tela do CEAC) — não precisa enviar o "
+            "DS-160 agora. A revisão final e o envio ficam por conta da consultora depois. "
+            "Aperte ENTER aqui pra registrar o Application ID no Flow (ou 'listar')... ",
         )
         capturar_application_id(cliente)
 

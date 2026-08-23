@@ -786,9 +786,18 @@ def preencher_us_contact(page, cliente):
         nome_partes = cliente['contato_eua_nome'].split()
         preencher_texto(page, "input[id$='tbxUS_POC_GIVEN_NAME']", nome_partes[0] if nome_partes else '')
         preencher_texto(page, "input[id$='tbxUS_POC_SURNAME']", " ".join(nome_partes[1:]) if len(nome_partes) > 1 else '')
-        preencher_texto(page, "input[id$='tbxUS_POC_HOME_TEL']", cliente.get('contato_eua_telefone', ''))
+        # Contato é uma pessoa, não uma organização — marca "Do Not Know"
+        # no campo Organization Name (são dois campos independentes na
+        # tela, e o CEAC exige um dos dois preenchido/marcado).
+        marcar_checkbox(page, "input[id$='cbxUS_POC_ORG_NA_IND']", forcar=True)
+
+        telefone_contato = cliente.get('contato_eua_telefone', '') or "5555555555"
+        preencher_texto(page, "input[id$='tbxUS_POC_HOME_TEL']", telefone_contato)
+
         if cliente.get('contato_eua_email'):
             preencher_texto(page, "input[id$='tbxUS_POC_EMAIL_ADDR']", cliente['contato_eua_email'])
+        else:
+            marcar_checkbox(page, "input[id$='cbexUS_POC_EMAIL_ADDR_NA']", forcar=True)
         relacionamento_en = POC_RELACIONAMENTO_EN.get(cliente.get('contato_eua_relacionamento', ''), "OTHER")
         selecionar_dropdown(page, "select[id$='ddlUS_POC_REL_TO_APP']", relacionamento_en)
 

@@ -40,6 +40,51 @@ ROBO_API_SECRET = os.environ.get("ROBO_API_SECRET", "")
 # Acesso à API
 # ------------------------------------------------------------------
 
+def buscar_clientes_por_nome(busca):
+    """Procura clientes por nome (ou CPF parcial) e devolve a lista de
+    candidatos (id, nome, cpf, status, flowClienteId), ou None se der erro
+    de conexão. Usado quando o operador não sabe o CPF de cor."""
+    if not ROBO_API_SECRET:
+        print("❌ Erro: variável de ambiente ROBO_API_SECRET não configurada (veja .env.example).")
+        return None
+    url = f"{DS160_RASCUNHO_API_URL}/api/robo-integracao/clientes"
+    try:
+        resp = requests.get(
+            url, params={"q": busca}, headers={"Authorization": f"Bearer {ROBO_API_SECRET}"}, timeout=15
+        )
+    except requests.RequestException as e:
+        print(f"❌ Erro de conexão com {DS160_RASCUNHO_API_URL}: {e}")
+        return None
+    if resp.status_code != 200:
+        print(f"❌ Erro {resp.status_code} ao buscar clientes: {resp.text}")
+        return None
+    return resp.json().get("clientes", [])
+
+
+def escolher_cliente_interativo(busca):
+    """Busca por nome/CPF parcial e, se achar mais de um, deixa o operador
+    escolher pelo número. Devolve o id do cliente escolhido, ou None."""
+    candidatos = buscar_clientes_por_nome(busca)
+    if candidatos is None:
+        return None
+    if not candidatos:
+        print(f"❌ Nenhum cliente encontrado com '{busca}'.")
+        return None
+    if len(candidatos) == 1:
+        return candidatos[0]["id"]
+
+    print(f"\nEncontrei {len(candidatos)} clientes com '{busca}':")
+    for i, c in enumerate(candidatos, start=1):
+        vinculo = "vinculado ao Flow" if c.get("flowClienteId") else "sem vínculo com o Flow"
+        print(f"  {i}. {c['nome']} — CPF {c.get('cpf') or 'sem CPF'} — {c['status']} — {vinculo}")
+    escolha = input("Digite o número do cliente desejado: ").strip()
+    try:
+        return candidatos[int(escolha) - 1]["id"]
+    except (ValueError, IndexError):
+        print("❌ Escolha inválida.")
+        return None
+
+
 def buscar_cliente_api(identificador):
     """Busca o cliente (por id do ds160-rascunho ou por CPF) na API.
     Devolve o JSON cru da resposta, ou None se não encontrar/der erro."""
@@ -515,7 +560,18 @@ def salvar_json(dados, nome_arquivo="dados_cliente.json"):
 
 
 if __name__ == "__main__":
-    identificador = sys.argv[1] if len(sys.argv) > 1 else input("CPF (ou id) do cliente no ds160-rascunho: ").strip()
+    entrada = sys.argv[1] if len(sys.argv) > 1 else input(
+        "Nome ou CPF do cliente no ds160-rascunho: "
+    ).strip()
+    if not entrada:
+        sys.exit(1)
+
+    # CPF = só dígitos (com ou sem pontuação). Id do Prisma (cuid) = string
+    # alfanumérica longa começando com 'c', sem espaço. Qualquer outra
+    # coisa (nome, mesmo que uma palavra só) cai na busca por nome.
+    so_digitos = entrada.replace(".", "").replace("-", "").isdigit()
+    parece_id_prisma = len(entrada) > 20 and entrada.isalnum() and entrada.startswith("c")
+    identificador = entrada if (so_digitos or parece_id_prisma) else escolher_cliente_interativo(entrada)
     if not identificador:
         sys.exit(1)
 

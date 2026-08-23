@@ -872,16 +872,25 @@ def preencher_family_spouse(page, cliente):
     preencher_texto(page, "input[id$='tbxSpousePOBCity']", cidade)
     selecionar_dropdown(page, "select[id$='ddlSpousePOBCountry']", "BRAZIL")
 
-    # Endereço do cônjuge: "Same as Home Address" quando o PDF diz que é o mesmo do aplicante;
-    # senão seleciona "Other" e avisa pra preencher manualmente (o PDF não traz endereço estruturado).
+    # Endereço do cônjuge: "Same as Home Address" quando o rascunho diz que é o
+    # mesmo do aplicante; senão seleciona "Other" e preenche endereço completo.
     if cliente.get('conjuge_endereco_mesmo_aplicante', True):
         selecionar_dropdown(page, "select[id$='ddlSpouseAddressType']", "Same as Home Address")
     else:
         selecionar_dropdown(page, "select[id$='ddlSpouseAddressType']", "Other (Specify Address)")
         time.sleep(1.5)  # troca de tipo de endereço dispara postback
-        print(f"⚠️ Endereço do cônjuge é diferente do aplicante "
-              f"('{cliente.get('conjuge_endereco_texto')}') — preencha manualmente "
-              f"Street Address/City/State/ZIP/Country.")
+        preencher_texto(page, "input[id$='tbxSPOUSE_ADDR_LN1']", cliente.get('conjuge_endereco_linha1', ''))
+        preencher_texto(page, "input[id$='tbxSPOUSE_ADDR_LN2']", cliente.get('conjuge_endereco_linha2', ''))
+        preencher_texto(page, "input[id$='tbxSPOUSE_ADDR_CITY']", cliente.get('conjuge_endereco_cidade', ''))
+        if cliente.get('conjuge_endereco_estado'):
+            preencher_texto(page, "input[id$='tbxSPOUSE_ADDR_STATE']", cliente['conjuge_endereco_estado'])
+        else:
+            marcar_checkbox(page, "input[id$='cbexSPOUSE_ADDR_STATE_NA']", forcar=True)
+        if cliente.get('conjuge_endereco_cep'):
+            preencher_texto(page, "input[id$='tbxSPOUSE_ADDR_POSTAL_CD']", cliente['conjuge_endereco_cep'])
+        else:
+            marcar_checkbox(page, "input[id$='cbexSPOUSE_ADDR_POSTAL_CD_NA']", forcar=True)
+        selecionar_dropdown(page, "select[id$='ddlSPOUSE_ADDR_CNTRY']", cliente.get('conjuge_endereco_pais', 'BRAZIL'))
 
     print("✅ Página Family Information: Spouse preenchida (confira os avisos ⚠️ acima, se houver)!")
 

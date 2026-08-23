@@ -443,6 +443,16 @@ def mapear_familia(respostas):
         dados["conjuge_local_nascimento"] = end_nasc.get("Cidade") or "a confirmar"
         end_conjuge = endereco(respostas, 182)
         dados["conjuge_endereco_mesmo_aplicante"] = not end_conjuge
+        # Endereço completo do cônjuge (quando diferente do aplicante) —
+        # antes só pegava a Rua e ignorava cidade/estado/cep/país,
+        # deixando o robô sem dado nenhum pra preencher no CEAC.
+        dados["conjuge_endereco_linha1"] = end_conjuge.get("Rua", "")
+        dados["conjuge_endereco_linha2"] = end_conjuge.get("Bairro e Complemento", "")
+        dados["conjuge_endereco_cidade"] = end_conjuge.get("Cidade", "")
+        dados["conjuge_endereco_estado"] = end_conjuge.get("Estado", "")
+        dados["conjuge_endereco_cep"] = end_conjuge.get("Código postal", "")
+        pais_conjuge = end_conjuge.get("País", "BRASIL")
+        dados["conjuge_endereco_pais"] = "BRAZIL" if pais_conjuge.upper() in ("BRASIL", "BRAZIL") else pais_conjuge.upper()
         dados["conjuge_endereco_texto"] = end_conjuge.get("Rua", "")
     else:
         dados["conjuge_nome"] = ""
@@ -450,6 +460,12 @@ def mapear_familia(respostas):
         dados["conjuge_nacionalidade"] = ""
         dados["conjuge_local_nascimento"] = ""
         dados["conjuge_endereco_mesmo_aplicante"] = True
+        dados["conjuge_endereco_linha1"] = ""
+        dados["conjuge_endereco_linha2"] = ""
+        dados["conjuge_endereco_cidade"] = ""
+        dados["conjuge_endereco_estado"] = ""
+        dados["conjuge_endereco_cep"] = ""
+        dados["conjuge_endereco_pais"] = ""
         dados["conjuge_endereco_texto"] = ""
 
     return dados

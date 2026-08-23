@@ -1079,20 +1079,83 @@ SEGURANCA_ID_MAP = {
     "doenca_transmissivel": "rblDisease",
     "disturbio_mental_fisico": "rblDisorder",
     "usuario_drogas": "rblDruguser",
+    # Security and Background: Part 2 — confirmadas ao vivo em 2026-08-23
+    "preso_condenado": "rblArrested",
+    "violou_lei_substancias_controladas": "rblControlledSubstances",
+    "prostituicao": "rblProstitution",
+    "lavagem_dinheiro": "rblMoneyLaundering",
+    "trafico_pessoas": "rblHumanTrafficking",
+    "auxiliou_trafico_pessoas": "rblAssistedSevereTrafficking",
+    "conjuge_beneficiario_trafico": "rblHumanTraffickingRelated",
+    # Security and Background: Part 3 — confirmadas ao vivo em 2026-08-23.
+    # ATENÇÃO: essa tela tem 12 perguntas reais no CEAC, mas o
+    # ds160-rascunho só pergunta 8 — faltam "cônjuge/filho de terrorista
+    # beneficiado" (rblTerroristRel), recrutamento de criança-soldado
+    # (rblChildSoldier), controle populacional coercitivo
+    # (rblPopulationControls) e transplante de órgão forçado
+    # (rblTransplant). Essas 4 não têm dado nenhum vindo do rascunho —
+    # o robô nem tenta, ficam sempre 100% manuais até alguém adicionar
+    # essas perguntas no formulário web.
+    "espionagem_sabotagem": "rblIllegalActivity",
+    "atividades_terroristas": "rblTerroristActivity",
+    "apoio_financeiro_terrorismo": "rblTerroristSupport",
+    "membro_organizacao_terrorista": "rblTerroristOrg",
+    "genocidio": "rblGenocide",
+    "tortura": "rblTorture",
+    "execucoes_extrajudiciais": "rblExViolence",
+    "violacoes_liberdade_religiosa": "rblReligiousFreedom",
+    # Security and Background: Part 4 — confirmadas ao vivo em 2026-08-23
+    "fraude_visto": "rblImmigrationFraud",
+    "audiencia_deportacao": "rblDeport",
+}
+
+# Id do <textarea> de explicação de cada pergunta (só existem quando a
+# resposta é "Sim"). Usado pra já digitar o texto que o cliente escreveu
+# no rascunho web (seguranca_explicacoes) — decisão do usuário em
+# 2026-08-23: pode preencher com o que vier, a revisão detalhada depois
+# cobre qualquer ajuste. O robô ainda NUNCA clica "Yes" sozinho (isso
+# continua manual, ver preencher_seguranca_confirmada).
+SEGURANCA_EXPL_ID_MAP = {
+    "preso_condenado": "tbxArrested",
+    "violou_lei_substancias_controladas": "tbxControlledSubstances",
+    "prostituicao": "tbxProstitution",
+    "lavagem_dinheiro": "tbxMoneyLaundering",
+    "trafico_pessoas": "tbxHumanTrafficking",
+    "auxiliou_trafico_pessoas": "tbxAssistedSevereTrafficking",
+    "conjuge_beneficiario_trafico": "tbxHumanTraffickingRelated",
+    "espionagem_sabotagem": "tbxIllegalActivity",
+    "atividades_terroristas": "tbxTerroristActivity",
+    "apoio_financeiro_terrorismo": "tbxTerroristSupport",
+    "membro_organizacao_terrorista": "tbxTerroristOrg",
+    "genocidio": "tbxGenocide",
+    "tortura": "tbxTorture",
+    "execucoes_extrajudiciais": "tbxExViolence",
+    "violacoes_liberdade_religiosa": "tbxReligiousFreedom",
+    "fraude_visto": "tbxImmigrationFraud",
+    "audiencia_deportacao": "tbxDeport_EXPL",
 }
 
 
 def preencher_seguranca_confirmada(page, cliente, chaves):
     """Marca 'No' nas perguntas de segurança já confirmadas no site (SEGURANCA_ID_MAP)
-    e cuja resposta no PDF é 'Não'. Se a resposta for 'Sim', NÃO clica — avisa pra
-    marcar manualmente e escrever a explicação (decisão deliberada, ver revisar_seguranca)."""
+    e cuja resposta é 'Não'. Se a resposta for 'Sim', NÃO clica — isso é sempre manual
+    (decisão deliberada, ver revisar_seguranca). Se já tiver uma explicação escrita pelo
+    cliente no rascunho web (seguranca_explicacoes) e o textarea correspondente for
+    conhecido, já digita o texto pra o operador só revisar antes de clicar 'Yes'."""
     seguranca = cliente.get('seguranca', {})
+    explicacoes = cliente.get('seguranca_explicacoes', {})
     for chave in chaves:
         prefixo = SEGURANCA_ID_MAP[chave]
         valor = seguranca.get(chave, False)
         if valor:
-            print(f"🔴 ATENÇÃO: '{chave}' = SIM no PDF — marque 'Yes' manualmente e escreva a "
-                  f"explicação no campo de texto associado a '{prefixo}'.")
+            print(f"🔴 ATENÇÃO: '{chave}' = SIM — marque 'Yes' manualmente em '{prefixo}'.")
+            explicacao_texto = explicacoes.get(chave)
+            textarea_id = SEGURANCA_EXPL_ID_MAP.get(chave)
+            if explicacao_texto and textarea_id:
+                print(f"   Digitando a explicação que o cliente já escreveu — confira com atenção.")
+                preencher_texto(page, f"textarea[id$='{textarea_id}']", explicacao_texto)
+            else:
+                print(f"   Sem explicação pronta pra essa — escreva manualmente depois de marcar 'Yes'.")
         else:
             marcar_sim_nao(page, prefixo, False)
 
@@ -1107,6 +1170,58 @@ def preencher_seguranca_parte1(page, cliente):
     )
 
     print("✅ Página Security and Background: Part 1 preenchida (confira os avisos acima, se houver)!")
+
+
+def preencher_seguranca_parte2(page, cliente):
+    """Preenche a tela Security and Background: Part 2 (ids confirmados ao vivo em 2026-08-23)"""
+    print("\n▶️ Injetando dados na tela Security and Background: Part 2...")
+    page.set_default_timeout(5000)
+
+    preencher_seguranca_confirmada(
+        page, cliente,
+        [
+            "preso_condenado", "violou_lei_substancias_controladas", "prostituicao",
+            "lavagem_dinheiro", "trafico_pessoas", "auxiliou_trafico_pessoas",
+            "conjuge_beneficiario_trafico",
+        ],
+    )
+
+    print("✅ Página Security and Background: Part 2 preenchida (confira os avisos acima, se houver)!")
+
+
+def preencher_seguranca_parte3(page, cliente):
+    """Preenche a tela Security and Background: Part 3 (ids confirmados ao vivo em 2026-08-23).
+
+    ATENÇÃO: essa tela tem 12 perguntas reais no CEAC, o ds160-rascunho só
+    cobre 8 — as 4 restantes (cônjuge/filho de terrorista beneficiado,
+    recrutamento de criança-soldado, controle populacional coercitivo,
+    transplante de órgão forçado) não têm pergunta correspondente no
+    formulário web, ficam sempre 100% manuais até isso ser adicionado lá."""
+    print("\n▶️ Injetando dados na tela Security and Background: Part 3...")
+    page.set_default_timeout(5000)
+
+    preencher_seguranca_confirmada(
+        page, cliente,
+        [
+            "espionagem_sabotagem", "atividades_terroristas", "apoio_financeiro_terrorismo",
+            "membro_organizacao_terrorista", "genocidio", "tortura",
+            "execucoes_extrajudiciais", "violacoes_liberdade_religiosa",
+        ],
+    )
+    print("⚠️ Essa tela tem 4 perguntas que o ds160-rascunho não coleta ainda (terrorista-parente, "
+          "criança-soldado, controle populacional, transplante forçado) — confira manualmente.")
+
+    print("✅ Página Security and Background: Part 3 preenchida (confira os avisos acima, se houver)!")
+
+
+def preencher_seguranca_parte4(page, cliente):
+    """Preenche a tela Security and Background: Part 4 (ids confirmados ao vivo em 2026-08-23)"""
+    print("\n▶️ Injetando dados na tela Security and Background: Part 4...")
+    page.set_default_timeout(5000)
+
+    preencher_seguranca_confirmada(page, cliente, ["fraude_visto", "audiencia_deportacao"])
+
+    print("✅ Página Security and Background: Part 4 preenchida (confira os avisos acima, se houver)!")
 
 
 def revisar_seguranca(cliente):
@@ -1296,6 +1411,9 @@ def preencher_ds160():
             ("Previous Work/Education/Training", preencher_work_education_previous),
             ("Additional Work/Education/Training", preencher_work_education_additional),
             ("Security and Background: Part 1", preencher_seguranca_parte1),
+            ("Security and Background: Part 2", preencher_seguranca_parte2),
+            ("Security and Background: Part 3", preencher_seguranca_parte3),
+            ("Security and Background: Part 4", preencher_seguranca_parte4),
         ]
 
         for nome_tela, funcao in etapas:

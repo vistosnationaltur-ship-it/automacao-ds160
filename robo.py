@@ -1,8 +1,20 @@
 import json
+import os
 import re
 import time
 import unicodedata
+
+import requests
 from playwright.sync_api import sync_playwright
+
+try:
+    from dotenv import load_dotenv
+    load_dotenv()
+except ImportError:
+    pass
+
+FLOW_API_URL = os.environ.get("FLOW_API_URL", "https://flow.2ntravel.com.br")
+ROBO_API_SECRET = os.environ.get("ROBO_API_SECRET", "")
 
 # ==============================================================================
 # AVISO IMPORTANTE
@@ -35,33 +47,36 @@ PERIODO_PT_EN = {
     "ANO": "Year(s)", "ANOS": "Year(s)",
 }
 
+# Opções reais do campo 73 (Grau de Parentesco, tela Travel Companions) no
+# formulário ds160-rascunho — conferidas contra o FormularioSchema em
+# 2026-08-23. As chaves precisam bater exatamente com o texto da opção
+# (incluindo o "*" de "Amigo(a)*" e os espaços em "Mãe / Pai"), senão o
+# select_option falha silenciosamente e o campo fica sem preencher.
 RELACIONAMENTO_EN = {
     "Cônjuge": "SPOUSE",
-    "Filho/Filha": "CHILD",
     "Filho(a)": "CHILD",
-    "Pai": "PARENT",
-    "Mãe": "PARENT",
+    "Mãe / Pai": "PARENT",
     "Irmão(a)": "OTHER RELATIVE",
-    "Primo(a)": "OTHER RELATIVE",
-    "Sobrinho(a)": "OTHER RELATIVE",
     "Tio(a)": "OTHER RELATIVE",
-    "Avô(ó)": "OTHER RELATIVE",
-    "Sogro(a)": "OTHER RELATIVE",
-    "Amigo(a)": "FRIEND",
-    "Colega de Trabalho": "BUSINESS ASSOCIATE",
-    "Outro Parente": "OTHER RELATIVE",
-    "Outro": "OTHER",
+    "Avô / Avó": "OTHER RELATIVE",
+    "Primo(a)": "OTHER RELATIVE",
+    "Amigo(a)*": "FRIEND",
+    "Namorado(a)": "OTHER",
+    "Parceiro de trabalho / Negócios": "BUSINESS ASSOCIATE",
 }
 
-# Relacionamento com o contato nos EUA (opções reais do ddlUS_POC_REL_TO_APP:
-# RELATIVE / SPOUSE / FRIEND / BUSINESS ASSOCIATE / EMPLOYER / SCHOOL OFFICIAL / OTHER)
+# Relacionamento com o contato nos EUA (opções reais do campo 161 no
+# ds160-rascunho, conferidas em 2026-08-23 — nota: "Conjugê" é erro de
+# digitação no próprio formulário, não aqui; a chave tem que bater com o
+# que o cliente realmente vê e escolhe).
 POC_RELACIONAMENTO_EN = {
-    "Amigo": "FRIEND",
-    "Amiga": "FRIEND",
     "Parente": "RELATIVE",
-    "Cônjuge": "SPOUSE",
+    "Conjugê": "SPOUSE",
+    "Amigo": "FRIEND",
+    "Parceiro Comercial": "BUSINESS ASSOCIATE",
     "Empregador": "EMPLOYER",
-    "Colega de Trabalho": "BUSINESS ASSOCIATE",
+    "Escola Oficial": "SCHOOL OFFICIAL",
+    "Outro": "OTHER",
 }
 
 # Nomes de estado americano escritos em português -> nome oficial em inglês
@@ -84,30 +99,40 @@ ESTADOS_EUA_PT_EN = {
     "GEORGIA": "GEORGIA",
 }
 
-# Grau de parentesco do parente de 1º grau nos EUA (opções reais do ddlUS_REL_TYPE:
-# SPOUSE / FIANCÉ/FIANCÉE / CHILD / SIBLING)
+# Grau de parentesco do parente de 1º grau nos EUA (opções reais do campo
+# 172 no ds160-rascunho, conferidas em 2026-08-23 — "Noivo(a)" e
+# "Filho/Filha" sem espaço ao redor da barra nunca bateram com o texto
+# real da opção, "Noivo / Noiva" e "Filho / Filha", então esse campo
+# provavelmente sempre falhava silenciosamente antes desta correção).
 PARENTESCO_US_REL_EN = {
     "Cônjuge": "SPOUSE",
-    "Noivo(a)": "FIANCÉ/FIANCÉE",
-    "Filho/Filha": "CHILD",
-    "Filho(a)": "CHILD",
+    "Noivo / Noiva": "FIANCÉ/FIANCÉE",
+    "Filho / Filha": "CHILD",
     "Irmão / Irmã": "SIBLING",
-    "Irmão/Irmã": "SIBLING",
-    "Irmão(a)": "SIBLING",
+}
+
+
+# Opções reais dos campos 307/308/313 (Situação do Pai/Mãe/Parente nos
+# EUA) no ds160-rascunho, conferidas em 2026-08-23. Antes esta função
+# comparava por substring ("GREEN CARD" in status, "CIDAD" in status),
+# o que classificava ERRADO a própria opção "Não Imigrante (não tem
+# green card e não é cidadão)" — ela contém as substrings "GREEN CARD" e
+# "CIDAD" dentro da negação, então caía sempre no primeiro "if" (U.S.
+# CITIZEN) em vez de NONIMMIGRANT. Trocado pra comparação exata.
+STATUS_PARENTE_EUA_EN = {
+    "Cidadão Americano": "U.S. CITIZEN",
+    "Residente permanente legal dos EUA (Green Card)": "U.S. LEGAL PERMANENT RESIDENT (LPR)",
+    "Não Imigrante (não tem green card e não é cidadão)": "NONIMMIGRANT",
+    "Outro": "OTHER/I DON'T KNOW",
 }
 
 
 def traduzir_status_parente_eua(status_pt):
-    """Situação do parente nos EUA (texto livre no PDF) -> opção real do
-    ddlUS_REL_STATUS (U.S. CITIZEN / LPR / NONIMMIGRANT / OTHER/I DON'T KNOW)."""
-    status = remover_acentos(status_pt).upper()
-    if "CIDAD" in status:
-        return "U.S. CITIZEN"
-    if "GREEN CARD" in status or "PERMANENTE" in status:
-        return "U.S. LEGAL PERMANENT RESIDENT (LPR)"
-    if "NONIMIGRANTE" in status or "TEMPOR" in status:
-        return "NONIMMIGRANT"
-    return "OTHER/I DON'T KNOW"
+    resultado = STATUS_PARENTE_EUA_EN.get(status_pt.strip())
+    if resultado is None:
+        print(f"⚠️ Situação de parente nos EUA não reconhecida: '{status_pt}' — selecione manualmente.")
+        return "OTHER/I DON'T KNOW"
+    return resultado
 
 # Nomes de país em português (sem acento) -> texto exato da opção no site (em inglês)
 PAISES_PT_EN = {
@@ -188,21 +213,59 @@ def limpar_caracteres_endereco(texto):
     return re.sub(r"\s+", " ", texto).strip()
 
 
+ARQUIVO_LOG_ALERTAS = "log_alertas.txt"
+
+
+def _registrar_alerta(tipo_campo, seletor, valor_pretendido, nota_operador):
+    """Grava no log local todo campo que o robô não conseguiu preencher
+    sozinho. Serve pra, com o tempo, perceber se algum seletor específico
+    vive quebrando (sinal de que o CEAC mudou o campo) em vez de sempre
+    depender da memória do operador."""
+    try:
+        with open(ARQUIVO_LOG_ALERTAS, "a", encoding="utf-8") as f:
+            f.write(
+                f"{time.strftime('%Y-%m-%d %H:%M:%S')} | {tipo_campo} | seletor={seletor} | "
+                f"valor_pretendido={valor_pretendido!r} | nota_operador={nota_operador!r}\n"
+            )
+    except OSError:
+        pass  # log é conveniência, nunca deve travar o robô
+
+
+def _alertar_e_pausar(tipo_campo, seletor, valor_pretendido):
+    """Toca o alerta sonoro/visual e PARA o robô até o operador confirmar
+    que resolveu manualmente. Diferente do comportamento antigo (só
+    imprimia um aviso e seguia direto pro próximo campo, o que fazia
+    campos ficarem vazios sem ninguém perceber na hora)."""
+    print("\a", end="")  # beep do terminal, chama atenção do operador
+    print("\n" + "!" * 60)
+    print(f"🔴 CAMPO NÃO PREENCHIDO — {tipo_campo}")
+    print(f"   seletor: {seletor}")
+    print(f"   valor que o robô tentou colocar: {valor_pretendido!r}")
+    print("!" * 60)
+    nota = input(
+        "👉 Preencha esse campo manualmente na tela e digite uma observação rápida "
+        "(ex.: 'ok', 'a confirmar') + ENTER pra continuar o preenchimento automático... "
+    ).strip()
+    _registrar_alerta(tipo_campo, seletor, valor_pretendido, nota)
+
+
 def preencher_texto(page, seletor, valor):
     """Preenche um campo de texto. Se o campo não existir/não estiver
-    visível, avisa e segue em frente (não derruba a tela inteira)."""
+    visível, PARA o robô e pede pro operador preencher manualmente antes
+    de continuar (ver _alertar_e_pausar)."""
     if valor is None or valor == "":
         return
     valor_sem_acento = remover_acentos(valor)
     try:
         page.locator(seletor).fill(valor_sem_acento, timeout=3000)
-    except Exception as e:
-        print(f"⚠️ Não consegui preencher '{seletor}' com '{valor_sem_acento}' — preencha manualmente. ({e})")
+    except Exception:
+        _alertar_e_pausar("texto", seletor, valor_sem_acento)
 
 
 def selecionar_dropdown(page, seletor, valor):
     """Tenta selecionar uma opção de <select> testando por label e por value,
-    com e sem zero à esquerda (o DS-160 varia isso dependendo do campo)."""
+    com e sem zero à esquerda (o DS-160 varia isso dependendo do campo).
+    Se nenhuma variação funcionar, PARA o robô (ver _alertar_e_pausar)."""
     if not valor:
         return
     loc = page.locator(seletor)
@@ -222,15 +285,16 @@ def selecionar_dropdown(page, seletor, valor):
                 return
             except Exception:
                 continue
-    print(f"⚠️ Não consegui selecionar '{valor}' em '{seletor}' — selecione manualmente essa opção.")
+    _alertar_e_pausar("dropdown", seletor, valor)
 
 
 def marcar_checkbox(page, seletor, forcar=False):
-    """Clica num checkbox/radio. Se não encontrar, avisa e segue em frente."""
+    """Clica num checkbox/radio. Se não encontrar, PARA o robô (ver
+    _alertar_e_pausar)."""
     try:
         page.locator(seletor).click(force=forcar, timeout=3000)
-    except Exception as e:
-        print(f"⚠️ Não consegui clicar em '{seletor}' — marque manualmente. ({e})")
+    except Exception:
+        _alertar_e_pausar("checkbox/radio", seletor, "(clique)")
 
 
 def marcar_sim_nao(page, id_prefix, valor_sim):
@@ -967,6 +1031,52 @@ def revisar_seguranca(cliente):
         print("   Preencha a explicação com cuidado — recomenda-se revisão humana/jurídica.")
 
 
+def gravar_application_id_no_flow(flow_cliente_id, application_id):
+    """Manda o Application ID (número do DS-160) direto pra ficha do
+    cliente no Flow, evitando digitação manual depois. Não derruba o
+    robô se falhar — só avisa, já que o preenchimento em si já terminou
+    nesse ponto."""
+    if not ROBO_API_SECRET:
+        print("⚠️ ROBO_API_SECRET não configurada — não deu pra gravar automaticamente no Flow. "
+              f"Anote manualmente: Application ID = {application_id}")
+        return
+    try:
+        resp = requests.post(
+            f"{FLOW_API_URL}/api/robo-integracao/atualizar-ds160",
+            headers={"Authorization": f"Bearer {ROBO_API_SECRET}"},
+            json={"clienteId": flow_cliente_id, "numeroDs160": application_id},
+            timeout=15,
+        )
+        if resp.status_code == 200:
+            print("✅ Application ID gravado no Flow com sucesso.")
+        else:
+            print(f"⚠️ Flow respondeu {resp.status_code} ao gravar o Application ID: {resp.text}")
+            print(f"   Anote manualmente: Application ID = {application_id}")
+    except requests.RequestException as e:
+        print(f"⚠️ Não consegui falar com o Flow ({e}). Anote manualmente: Application ID = {application_id}")
+
+
+def capturar_application_id(cliente):
+    """Pergunta ao operador o Application ID depois que ELE MESMO enviar o
+    DS-160 oficialmente no CEAC (o robô nunca envia sozinho — regra de
+    segurança inegociável do projeto). Se o cliente estiver ligado a uma
+    ficha no Flow, grava lá automaticamente."""
+    print("\n" + "=" * 60)
+    print("📋 Depois de você mesmo revisar e ENVIAR o DS-160 no site do CEAC,")
+    print("   cole aqui o Application ID que aparece na tela de confirmação.")
+    print("=" * 60)
+    application_id = input("Application ID (ou ENTER para pular): ").strip()
+    if not application_id:
+        return
+
+    flow_cliente_id = cliente.get("_flow_cliente_id")
+    if flow_cliente_id:
+        gravar_application_id_no_flow(flow_cliente_id, application_id)
+    else:
+        print("⚠️ Esse cliente não está ligado a nenhuma ficha do Flow "
+              f"(flowClienteId vazio) — anote manualmente: Application ID = {application_id}")
+
+
 def preencher_ds160():
     cliente = carregar_dados()
     if not cliente:
@@ -1012,7 +1122,11 @@ def preencher_ds160():
 
         revisar_seguranca(cliente)
 
-        input("\n👉 Preenchimento concluído até o momento! Aperte ENTER para encerrar a automação e fechar o navegador.")
+        input("\n👉 Preenchimento concluído até o momento! Revise tudo, envie o DS-160 você "
+              "mesmo no site e aperte ENTER aqui pra registrar o Application ID.")
+        capturar_application_id(cliente)
+
+        input("\n👉 Aperte ENTER para encerrar a automação e fechar o navegador.")
         browser.close()
 
 

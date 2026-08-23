@@ -4,6 +4,9 @@ venv/
 __pycache__/
 *.pyc
 
+# Segredos (URL/token da API) — nunca versionar
+.env
+
 # Dados de cliente (sensíveis — passaporte, endereço, etc.) nunca vão pro Git
 *.pdf
 dados_cliente.json
@@ -12,3 +15,6 @@ ds160_preencher/
 # Backups locais
 backups/
 *.zip
+
+# Log de campos que precisaram de intervenção manual (pode conter dado de cliente)
+log_alertas.txt

@@ -1107,7 +1107,7 @@ def preencher_work_education_additional(page, cliente):
 
     marcar_sim_nao(page, "rblMILITARY_SERVICE_IND", cliente.get('serviu_exercito', False))
     if cliente.get('serviu_exercito'):
-        time.sleep(1.5)  # rblMILITARY_SERVICE_IND dispara postback pra revelar os campos abaixo
+        time.sleep(2.5)  # rblMILITARY_SERVICE_IND dispara postback pra revelar os campos abaixo
         selecionar_dropdown(page, "select[id$='dtlMILITARY_SERVICE_ctl00_ddlMILITARY_SVC_CNTRY']", cliente.get('servico_militar_pais', 'BRAZIL'))
         preencher_texto(page, "input[id$='dtlMILITARY_SERVICE_ctl00_tbxMILITARY_SVC_BRANCH']", cliente.get('servico_militar_ramo', ''))
         preencher_texto(page, "input[id$='dtlMILITARY_SERVICE_ctl00_tbxMILITARY_SVC_RANK']", cliente.get('servico_militar_posicao', ''))

@@ -790,6 +790,7 @@ def preencher_us_contact(page, cliente):
         # no campo Organization Name (são dois campos independentes na
         # tela, e o CEAC exige um dos dois preenchido/marcado).
         marcar_checkbox(page, "input[id$='cbxUS_POC_ORG_NA_IND']", forcar=True)
+        time.sleep(1.5)  # cbxUS_POC_ORG_NA_IND também dispara postback; espera terminar
 
         telefone_contato = cliente.get('contato_eua_telefone', '') or "5555555555"
         preencher_texto(page, "input[id$='tbxUS_POC_HOME_TEL']", telefone_contato)
@@ -816,7 +817,16 @@ def preencher_us_contact(page, cliente):
         estado_pt = cliente.get('contato_eua_endereco_estado', '')
         estado_en = ESTADOS_EUA_PT_EN.get(remover_acentos(estado_pt).upper(), estado_pt)
         selecionar_dropdown(page, "select[id$='ddlUS_POC_ADDR_STATE']", estado_en)
-        preencher_texto(page, "input[id$='tbxUS_POC_ADDR_POSTAL_CD']", cliente.get('contato_eua_endereco_cep', ''))
+        # Esse campo só aceita ZIP americano (5 ou 9 dígitos); se o contato
+        # mora fora dos EUA (CEP brasileiro, 8 dígitos), não existe valor
+        # válido pra digitar — é limitação do próprio DS-160, não do robô.
+        # Deixa em branco e sinaliza pra revisão humana (mesmo padrão do
+        # campo de Estado acima).
+        cep_contato = cliente.get('contato_eua_endereco_cep', '')
+        if re.fullmatch(r"\d{5}(-?\d{4})?", cep_contato or ""):
+            preencher_texto(page, "input[id$='tbxUS_POC_ADDR_POSTAL_CD']", cep_contato)
+        elif cep_contato:
+            _registrar_alerta("zip_invalido", "tbxUS_POC_ADDR_POSTAL_CD", cep_contato)
     else:
         marcar_checkbox(page, "input[id$='cbxUS_POC_NAME_NA']", forcar=True)
         time.sleep(1.5)  # cbxUS_POC_NAME_NA dispara um postback; espera terminar

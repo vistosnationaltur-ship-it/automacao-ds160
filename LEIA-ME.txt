@@ -1,0 +1,27 @@
+AUTOMACAO DS-160 - COMO INSTALAR E USAR
+========================================
+
+INSTALACAO (fazer uma vez só, no computador novo)
+---------------------------------------------------
+1. Copie esta pasta inteira ("automacao_vistos") para o computador novo.
+2. Dê dois cliques em "INSTALAR.bat".
+3. Se aparecer um aviso do Windows ("O Windows protegeu o computador"),
+   clique em "Mais informações" e depois em "Executar assim mesmo".
+4. Aguarde. Precisa de internet — o instalador baixa o Python (se não
+   tiver), as bibliotecas Python e o navegador usado pelo robô.
+5. Se o Python não estava instalado, na primeira vez o instalador vai
+   pedir pra você fechar a janela e clicar em INSTALAR.bat de novo —
+   é normal, é só rodar de novo que ele continua e termina.
+6. No final, vão aparecer 2 atalhos na Área de Trabalho.
+
+USO DO DIA A DIA (depois de instalado)
+---------------------------------------------------
+1. Coloque o PDF do cliente dentro da pasta "ds160_preencher".
+2. Clique no atalho "1 - Extrair PDF do Cliente" na Área de Trabalho.
+   Isso gera o arquivo dados_cliente.json com os dados do cliente.
+3. Clique no atalho "2 - Preencher DS160 (Robo)" na Área de Trabalho.
+   Isso abre o navegador e preenche o formulário DS-160 automaticamente,
+   parando entre telas para você conferir.
+
+O robô nunca envia o formulário sozinho e nunca marca "Sim" em pergunta
+de segurança sozinho — sempre para para revisão manual nesses casos.

@@ -1,0 +1,14 @@
+Automação DS160 Phyton
+
+
+No Terminal
+
+(pasta onde esta salvo os documentos)
+cd C:\Users\diret\OneDrive\Documentos\Automação_DS160\automacao_vistos
+
+extrair PDF
+python leitor_pdf.py
+
+comando para execução
+python robo.py
+

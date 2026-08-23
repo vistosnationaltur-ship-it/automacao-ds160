@@ -1,0 +1,14 @@
+# Ambiente Python
+.venv/
+venv/
+__pycache__/
+*.pyc
+
+# Dados de cliente (sensíveis — passaporte, endereço, etc.) nunca vão pro Git
+*.pdf
+dados_cliente.json
+ds160_preencher/
+
+# Backups locais
+backups/
+*.zip

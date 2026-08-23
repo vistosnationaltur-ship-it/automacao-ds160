@@ -522,6 +522,17 @@ SEGURANCA_CAMPO_ID = {
 }
 
 
+def explicacao(respostas, campo_id):
+    """Texto que o próprio cliente escreveu no campo 'Explique' condicional
+    a essa pergunta (existe desde 2026-08-23) — o robô NUNCA decide isso
+    sozinho, só repassa o que um humano já escreveu no rascunho web."""
+    entrada = respostas.get(str(campo_id))
+    if not entrada:
+        return ""
+    texto = entrada.get("explicacao", "")
+    return texto.strip() if isinstance(texto, str) else ""
+
+
 def mapear_seguranca(respostas):
     """Igual ao leitor_pdf.py: cada pergunta vira True apenas se a resposta
     for exatamente 'Sim'. Uma pergunta NÃO respondida (campo ausente de
@@ -529,8 +540,20 @@ def mapear_seguranca(respostas):
     isso é a revisão humana obrigatória em `revisar_seguranca()` no
     robo.py, que lista de novo cada pergunta pro operador conferir antes
     de enviar. Nunca confie só nesse dict pra decidir uma resposta de
-    segurança."""
-    return {"seguranca": {chave: booleano(respostas, cid) for chave, cid in SEGURANCA_CAMPO_ID.items()}}
+    segurança.
+
+    `seguranca_explicacoes` guarda o texto que o cliente já escreveu (via
+    campo 'Explique' no rascunho web) pra cada pergunta respondida 'Sim' —
+    ainda não usado pelo robo.py (Security Parts 2-5 não mapeadas), mas já
+    disponível pra quando isso for implementado."""
+    return {
+        "seguranca": {chave: booleano(respostas, cid) for chave, cid in SEGURANCA_CAMPO_ID.items()},
+        "seguranca_explicacoes": {
+            chave: explicacao(respostas, cid)
+            for chave, cid in SEGURANCA_CAMPO_ID.items()
+            if explicacao(respostas, cid)
+        },
+    }
 
 
 def montar_dados_cliente(cliente_api):

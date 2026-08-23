@@ -1319,11 +1319,15 @@ def preencher_ds160():
 
         revisar_seguranca(cliente)
 
-        input("\n👉 Preenchimento concluído até o momento! Revise tudo, envie o DS-160 você "
-              "mesmo no site e aperte ENTER aqui pra registrar o Application ID.")
+        _perguntar(
+            page,
+            "\n👉 Preenchimento concluído até o momento! Revise tudo (inclusive Security and "
+            "Background Partes 2-5, ainda não mapeadas), envie o DS-160 você mesmo no site e "
+            "aperte ENTER aqui pra registrar o Application ID (ou 'listar')... ",
+        )
         capturar_application_id(cliente)
 
-        input("\n👉 Aperte ENTER para encerrar a automação e fechar o navegador.")
+        _perguntar(page, "\n👉 Aperte ENTER para encerrar a automação e fechar o navegador (ou 'listar')... ")
         browser.close()
 
 

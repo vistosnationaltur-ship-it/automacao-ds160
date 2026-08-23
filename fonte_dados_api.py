@@ -391,7 +391,11 @@ def mapear_endereco_contato(respostas):
     dados["tem_contato_eua"] = texto_opcional(respostas, 158).upper().startswith("SIM")
     if dados["tem_contato_eua"]:
         dados["contato_eua_nome"] = texto(respostas, 304)
-        dados["contato_eua_telefone"] = texto_opcional(respostas, 347)
+        # Campo 347 é texto livre no rascunho web — cliente pode digitar
+        # espaço/traço/+ (ex.: "+52 15148 81511223"), e o CEAC rejeita
+        # preencher.fill() quando o valor tem espaço no meio (o campo
+        # some/trava sem dar erro claro). Só dígitos, igual telefone_*.
+        dados["contato_eua_telefone"] = "".join(ch for ch in texto_opcional(respostas, 347) if ch.isdigit())
         dados["contato_eua_email"] = texto_opcional(respostas, 345).lower()
 
         end = endereco(respostas, 303)

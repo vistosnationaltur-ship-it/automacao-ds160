@@ -301,7 +301,7 @@ def preencher_texto(page, seletor, valor):
         return
     valor_sem_acento = remover_acentos(valor)
     try:
-        page.locator(seletor).first.fill(valor_sem_acento, timeout=3000)
+        page.locator(seletor).first.fill(valor_sem_acento, timeout=6000)
     except Exception:
         _registrar_alerta("texto", seletor, valor_sem_acento)
 

@@ -1088,14 +1088,11 @@ SEGURANCA_ID_MAP = {
     "auxiliou_trafico_pessoas": "rblAssistedSevereTrafficking",
     "conjuge_beneficiario_trafico": "rblHumanTraffickingRelated",
     # Security and Background: Part 3 — confirmadas ao vivo em 2026-08-23.
-    # ATENÇÃO: essa tela tem 12 perguntas reais no CEAC, mas o
-    # ds160-rascunho só pergunta 8 — faltam "cônjuge/filho de terrorista
-    # beneficiado" (rblTerroristRel), recrutamento de criança-soldado
-    # (rblChildSoldier), controle populacional coercitivo
-    # (rblPopulationControls) e transplante de órgão forçado
-    # (rblTransplant). Essas 4 não têm dado nenhum vindo do rascunho —
-    # o robô nem tenta, ficam sempre 100% manuais até alguém adicionar
-    # essas perguntas no formulário web.
+    # Essa tela tem 12 perguntas reais no CEAC, mas o ds160-rascunho só
+    # pergunta 8 — as outras 4 (cônjuge/filho de terrorista beneficiado,
+    # criança-soldado, controle populacional, transplante forçado) são
+    # sempre marcadas "Não" direto em preencher_seguranca_parte3 (decisão
+    # de negócio do usuário, não pergunta de dado).
     "espionagem_sabotagem": "rblIllegalActivity",
     "atividades_terroristas": "rblTerroristActivity",
     "apoio_financeiro_terrorismo": "rblTerroristSupport",
@@ -1204,11 +1201,14 @@ def preencher_seguranca_parte2(page, cliente):
 def preencher_seguranca_parte3(page, cliente):
     """Preenche a tela Security and Background: Part 3 (ids confirmados ao vivo em 2026-08-23).
 
-    ATENÇÃO: essa tela tem 12 perguntas reais no CEAC, o ds160-rascunho só
-    cobre 8 — as 4 restantes (cônjuge/filho de terrorista beneficiado,
-    recrutamento de criança-soldado, controle populacional coercitivo,
-    transplante de órgão forçado) não têm pergunta correspondente no
-    formulário web, ficam sempre 100% manuais até isso ser adicionado lá."""
+    Essa tela tem 12 perguntas reais no CEAC, o ds160-rascunho só cobre 8.
+    As 4 restantes (cônjuge/filho de terrorista beneficiado, recrutamento
+    de criança-soldado, controle populacional coercitivo, transplante de
+    órgão forçado) não têm pergunta correspondente no formulário web —
+    decisão explícita do usuário em 2026-08-23: marcar sempre 'Não'
+    direto, sem alerta, porque um cliente que precisasse responder 'Sim'
+    aqui não é um cliente que a 2N Travel daria andamento de qualquer
+    forma (foge completamente do perfil de assessoria de turismo)."""
     print("\n▶️ Injetando dados na tela Security and Background: Part 3...")
     page.set_default_timeout(5000)
 
@@ -1220,8 +1220,9 @@ def preencher_seguranca_parte3(page, cliente):
             "execucoes_extrajudiciais", "violacoes_liberdade_religiosa",
         ],
     )
-    print("⚠️ Essa tela tem 4 perguntas que o ds160-rascunho não coleta ainda (terrorista-parente, "
-          "criança-soldado, controle populacional, transplante forçado) — confira manualmente.")
+
+    for prefixo in ("rblTerroristRel", "rblChildSoldier", "rblPopulationControls", "rblTransplant"):
+        marcar_sim_nao(page, prefixo, False)
 
     print("✅ Página Security and Background: Part 3 preenchida (confira os avisos acima, se houver)!")
 

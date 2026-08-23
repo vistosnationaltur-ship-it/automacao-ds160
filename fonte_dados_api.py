@@ -283,6 +283,28 @@ def mapear_pagina_1(respostas):
         dados["pagador_empresa_endereco_cidade_uf_cep"] = f"{cidade}, {estado_e} {cep}".strip()
         dados["pagador_empresa_endereco_pais"] = end.get("País", "BRASIL")
 
+    if dados["quem_paga"] == "O":
+        nome_completo_pagador = texto(respostas, 283)
+        partes_pagador = nome_completo_pagador.split()
+        dados["pagador_pessoa_nome"] = partes_pagador[0] if partes_pagador else "a confirmar"
+        dados["pagador_pessoa_sobrenome"] = " ".join(partes_pagador[1:]) if len(partes_pagador) > 1 else "a confirmar"
+        dados["pagador_pessoa_telefone"] = texto_opcional(respostas, 286)
+        dados["pagador_pessoa_email"] = texto_opcional(respostas, 287).lower()
+        dados["pagador_pessoa_relacionamento"] = texto(respostas, 284)
+
+        end = endereco(respostas, 288)
+        mesmo_endereco_texto = texto_opcional(respostas, 289)
+        dados["pagador_pessoa_endereco_mesmo_aplicante"] = (
+            "Mesmo endereço do aplicante" in mesmo_endereco_texto or not end
+        )
+        if end:
+            dados["pagador_pessoa_endereco_linha1"] = end.get("Rua") or "a confirmar"
+            cidade = end.get("Cidade", "a confirmar")
+            estado_e = end.get("Estado", "")
+            cep = end.get("Código postal", "")
+            dados["pagador_pessoa_endereco_cidade_uf_cep"] = f"{cidade}, {estado_e} {cep}".strip()
+            dados["pagador_pessoa_endereco_pais"] = end.get("País", "BRASIL")
+
     return dados
 
 

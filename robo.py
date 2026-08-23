@@ -190,6 +190,18 @@ def carregar_dados():
         return None
 
 
+def _tem_telefone_real(valor):
+    """O rascunho web (ds160-rascunho) usa '0' como convenção pra 'não
+    tenho esse telefone' nos campos de segundo telefone/telefone
+    comercial (são obrigatórios no formulário deles, então não dá pra
+    deixar em branco). Sem esse filtro, o robô preenchia '0' literal no
+    campo do CEAC em vez de marcar 'Does Not Apply'."""
+    if not valor:
+        return False
+    digitos = "".join(ch for ch in str(valor) if ch.isdigit())
+    return digitos not in ("", "0")
+
+
 def remover_acentos(texto):
     """O site do DS-160 não aceita acentos/caracteres especiais nos campos
     de texto (ex.: BELÉM -> BELEM, São Paulo -> Sao Paulo)."""
@@ -215,57 +227,80 @@ def limpar_caracteres_endereco(texto):
 
 ARQUIVO_LOG_ALERTAS = "log_alertas.txt"
 
+# Pendências da tela atual — acumuladas silenciosamente durante o
+# preenchimento (sem pausar campo a campo, que tirava o operador do
+# ritmo e causava dessincronia com o navegador) e mostradas de uma vez
+# só no final da tela, no mesmo ponto onde o robô já pausava antes.
+_pendencias_tela = []
 
-def _registrar_alerta(tipo_campo, seletor, valor_pretendido, nota_operador):
-    """Grava no log local todo campo que o robô não conseguiu preencher
-    sozinho. Serve pra, com o tempo, perceber se algum seletor específico
-    vive quebrando (sinal de que o CEAC mudou o campo) em vez de sempre
-    depender da memória do operador."""
+
+def _registrar_alerta(tipo_campo, seletor, valor_pretendido):
+    """Grava no log local e na lista de pendências da tela atual todo
+    campo que o robô não conseguiu preencher sozinho. O log serve pra,
+    com o tempo, perceber se algum seletor específico vive quebrando
+    (sinal de que o CEAC mudou o campo)."""
+    print(f"🔴 CAMPO NÃO PREENCHIDO ({tipo_campo}): seletor={seletor} | valor pretendido={valor_pretendido!r}")
+    _pendencias_tela.append((tipo_campo, seletor, valor_pretendido))
     try:
         with open(ARQUIVO_LOG_ALERTAS, "a", encoding="utf-8") as f:
             f.write(
                 f"{time.strftime('%Y-%m-%d %H:%M:%S')} | {tipo_campo} | seletor={seletor} | "
-                f"valor_pretendido={valor_pretendido!r} | nota_operador={nota_operador!r}\n"
+                f"valor_pretendido={valor_pretendido!r}\n"
             )
     except OSError:
         pass  # log é conveniência, nunca deve travar o robô
 
 
-def _alertar_e_pausar(tipo_campo, seletor, valor_pretendido):
-    """Toca o alerta sonoro/visual e PARA o robô até o operador confirmar
-    que resolveu manualmente. Diferente do comportamento antigo (só
-    imprimia um aviso e seguia direto pro próximo campo, o que fazia
-    campos ficarem vazios sem ninguém perceber na hora)."""
+def _perguntar(page, mensagem):
+    """input() padrão do robô: SEMPRE aceita 'listar' (mostra os campos da
+    tela atual e pergunta de novo), em qualquer prompt — antes só alguns
+    prompts reconheciam o comando e outros não, o que fazia parecer que
+    'listar' às vezes não funcionava."""
+    while True:
+        resposta = input(mensagem).strip().lower()
+        if resposta == "listar":
+            listar_campos_da_tela(page)
+            continue
+        return resposta
+
+
+def revisar_pendencias_tela(page, nome_tela):
+    """Chamado uma vez, no final de cada tela (mesmo ponto onde o robô já
+    pausava pedindo pra clicar 'Next'). Se algum campo falhou durante o
+    preenchimento dessa tela, mostra a lista completa de uma vez e pausa
+    UMA ÚNICA VEZ pedindo confirmação — em vez de interromper o operador
+    a cada campo individual."""
+    global _pendencias_tela
+    if not _pendencias_tela:
+        return
     print("\a", end="")  # beep do terminal, chama atenção do operador
     print("\n" + "!" * 60)
-    print(f"🔴 CAMPO NÃO PREENCHIDO — {tipo_campo}")
-    print(f"   seletor: {seletor}")
-    print(f"   valor que o robô tentou colocar: {valor_pretendido!r}")
+    print(f"🔴 {len(_pendencias_tela)} campo(s) NÃO preenchido(s) na tela '{nome_tela}':")
+    for tipo_campo, seletor, valor_pretendido in _pendencias_tela:
+        print(f"   - [{tipo_campo}] {seletor} (valor pretendido: {valor_pretendido!r})")
     print("!" * 60)
-    nota = input(
-        "👉 Preencha esse campo manualmente na tela e digite uma observação rápida "
-        "(ex.: 'ok', 'a confirmar') + ENTER pra continuar o preenchimento automático... "
-    ).strip()
-    _registrar_alerta(tipo_campo, seletor, valor_pretendido, nota)
+    _perguntar(page, "👉 Preencha esses campos manualmente na tela e aperte ENTER pra continuar (ou 'listar')... ")
+    _pendencias_tela = []
 
 
 def preencher_texto(page, seletor, valor):
     """Preenche um campo de texto. Se o campo não existir/não estiver
-    visível, PARA o robô e pede pro operador preencher manualmente antes
-    de continuar (ver _alertar_e_pausar)."""
+    visível, registra a pendência e segue pro próximo campo (a tela
+    inteira roda sem pausar; a revisão acontece toda de uma vez no final,
+    ver revisar_pendencias_tela)."""
     if valor is None or valor == "":
         return
     valor_sem_acento = remover_acentos(valor)
     try:
         page.locator(seletor).fill(valor_sem_acento, timeout=3000)
     except Exception:
-        _alertar_e_pausar("texto", seletor, valor_sem_acento)
+        _registrar_alerta("texto", seletor, valor_sem_acento)
 
 
 def selecionar_dropdown(page, seletor, valor):
     """Tenta selecionar uma opção de <select> testando por label e por value,
     com e sem zero à esquerda (o DS-160 varia isso dependendo do campo).
-    Se nenhuma variação funcionar, PARA o robô (ver _alertar_e_pausar)."""
+    Se nenhuma variação funcionar, registra a pendência e segue em frente."""
     if not valor:
         return
     loc = page.locator(seletor)
@@ -285,16 +320,17 @@ def selecionar_dropdown(page, seletor, valor):
                 return
             except Exception:
                 continue
-    _alertar_e_pausar("dropdown", seletor, valor)
+    _registrar_alerta("dropdown", seletor, valor)
 
 
 def marcar_checkbox(page, seletor, forcar=False):
-    """Clica num checkbox/radio. Se não encontrar, PARA o robô (ver
-    _alertar_e_pausar)."""
+    """Clica num checkbox/radio. Se não encontrar, registra a pendência e
+    segue em frente (timeout maior que antes — 6s em vez de 3s — porque o
+    CEAC às vezes demora pra terminar o postback da pergunta anterior)."""
     try:
-        page.locator(seletor).click(force=forcar, timeout=3000)
+        page.locator(seletor).click(force=forcar, timeout=6000)
     except Exception:
-        _alertar_e_pausar("checkbox/radio", seletor, "(clique)")
+        _registrar_alerta("checkbox/radio", seletor, "(clique)")
 
 
 def marcar_sim_nao(page, id_prefix, valor_sim):
@@ -435,8 +471,37 @@ def preencher_travel(page, cliente):
         selecionar_dropdown(page, "select[id$='ddlPayerCountry']", "BRAZIL")
 
     elif cliente.get('quem_paga') == 'O':
-        print("⚠️ Pagador é 'Other Person', mas o leitor_pdf.py não extrai nome/telefone/relação")
-        print("   dessa pessoa — preencha manualmente os campos do pagador.")
+        print("👉 Preenchendo dados da pessoa pagadora:")
+        preencher_texto(page, "input[id$='tbxPayerSurname']", cliente.get('pagador_pessoa_sobrenome', ''))
+        preencher_texto(page, "input[id$='tbxPayerGivenName']", cliente.get('pagador_pessoa_nome', ''))
+        preencher_texto(page, "input[id$='tbxPayerPhone']", cliente.get('pagador_pessoa_telefone', ''))
+
+        email_pagador = cliente.get('pagador_pessoa_email', '')
+        if email_pagador:
+            preencher_texto(page, "input[id$='tbxPAYER_EMAIL_ADDR']", email_pagador)
+        else:
+            marcar_checkbox(page, "input[id$='cbxDNAPAYER_EMAIL_ADDR_NA']", forcar=True)
+
+        relacionamento = cliente.get('pagador_pessoa_relacionamento', '')
+        if relacionamento:
+            selecionar_dropdown(page, "select[id$='ddlPayerRelationship']", relacionamento)
+
+        # Endereço da pessoa pagadora é o mesmo do aplicante? (só sabemos
+        # dizer "Não" quando o rascunho web trouxe um endereço diferente)
+        endereco_diferente = not cliente.get('pagador_pessoa_endereco_mesmo_aplicante', True)
+        marcar_sim_nao(page, "rblPayerAddrSameAsInd", not endereco_diferente)
+
+        if endereco_diferente:
+            preencher_texto(page, "input[id$='tbxPayerStreetAddress1']", cliente.get('pagador_pessoa_endereco_linha1', ''))
+            cidade_uf_cep = cliente.get('pagador_pessoa_endereco_cidade_uf_cep', '')
+            match_cuc = re.match(r"^(.*),\s*([^,]+?)\s+(\d{5,9})$", cidade_uf_cep.strip())
+            if match_cuc:
+                preencher_texto(page, "input[id$='tbxPayerCity']", match_cuc.group(1))
+                preencher_texto(page, "input[id$='tbxPayerStateProvince']", match_cuc.group(2))
+                preencher_texto(page, "input[id$='tbxPayerPostalZIPCode']", match_cuc.group(3))
+            else:
+                print(f"⚠️ Não consegui separar cidade/UF/CEP de '{cidade_uf_cep}' — preencha manualmente.")
+            selecionar_dropdown(page, "select[id$='ddlPayerCountry']", "BRAZIL")
 
     print("✅ Página Travel Information preenchida (confira os avisos ⚠️ acima, se houver)!")
 
@@ -448,10 +513,15 @@ def preencher_travel_companions(page, cliente):
 
     marcar_sim_nao(page, "rblOtherPersonsTravelingWithYou", cliente.get('viaja_com_alguem', False))
 
-    # Viajando em grupo/organização -> sempre "No" (não temos esse dado no PDF)
-    marcar_checkbox(page, "input[id$='rblGroupTravel_1']")
-
     companheiros = cliente.get('companheiros_viagem', [])
+    if cliente.get('viaja_com_alguem'):
+        # "Traveling as part of a group or organization?" só existe no site
+        # quando já respondeu Sim pra "outras pessoas viajando com você" —
+        # confirmado ao vivo em 2026-08-23 (listar_campos_da_tela não
+        # mostrava rblGroupTravel nenhuma quando a resposta era "No").
+        # Viajando em grupo/organização -> sempre "No" (não temos esse dado)
+        marcar_checkbox(page, "input[id$='rblGroupTravel_1']")
+
     if cliente.get('viaja_com_alguem') and companheiros:
         for indice, comp in enumerate(companheiros):
             if indice > 0:
@@ -483,17 +553,22 @@ def preencher_previous_travel(page, cliente):
     page.set_default_timeout(5000)
 
     marcar_sim_nao(page, "rblPREV_US_TRAVEL_IND", cliente.get('ja_esteve_eua', False))
-    marcar_sim_nao(page, "rblPREV_US_DRIVER_LIC_IND", cliente.get('carteira_habilitacao_eua', False))
-    if cliente.get('carteira_habilitacao_eua'):
-        numero_habilitacao = cliente.get('habilitacao_numero', '')
-        if numero_habilitacao and numero_habilitacao != "a confirmar" and "SEI" not in numero_habilitacao.upper():
-            preencher_texto(page, "input[id$='dtlUS_DRIVER_LICENSE_ctl00_tbxUS_DRIVER_LICENSE']", numero_habilitacao)
-        else:
-            marcar_checkbox(page, "input[id$='dtlUS_DRIVER_LICENSE_ctl00_cbxUS_DRIVER_LICENSE_NA']", forcar=True)
-        # Estado da habilitação: sempre Florida, independente do cliente
-        selecionar_dropdown(page, "select[id$='dtlUS_DRIVER_LICENSE_ctl00_ddlUS_DRIVER_LICENSE_STATE']", "FLORIDA")
 
     if cliente.get('ja_esteve_eua'):
+        # Carteira de habilitação americana e histórico de visitas só existem
+        # no site quando "Have you ever been in the U.S.?" = Yes — confirmado
+        # ao vivo em 2026-08-23 (listar_campos_da_tela não mostrava esses
+        # campos com a resposta "No").
+        marcar_sim_nao(page, "rblPREV_US_DRIVER_LIC_IND", cliente.get('carteira_habilitacao_eua', False))
+        if cliente.get('carteira_habilitacao_eua'):
+            numero_habilitacao = cliente.get('habilitacao_numero', '')
+            if numero_habilitacao and numero_habilitacao != "a confirmar" and "SEI" not in numero_habilitacao.upper():
+                preencher_texto(page, "input[id$='dtlUS_DRIVER_LICENSE_ctl00_tbxUS_DRIVER_LICENSE']", numero_habilitacao)
+            else:
+                marcar_checkbox(page, "input[id$='dtlUS_DRIVER_LICENSE_ctl00_cbxUS_DRIVER_LICENSE_NA']", forcar=True)
+            # Estado da habilitação: sempre Florida, independente do cliente
+            selecionar_dropdown(page, "select[id$='dtlUS_DRIVER_LICENSE_ctl00_ddlUS_DRIVER_LICENSE_STATE']", "FLORIDA")
+
         visitas = cliente.get('visitas_anteriores_eua', [])[:5]  # site só aceita até 5
         for indice, visita in enumerate(visitas):
             if indice > 0:
@@ -533,7 +608,11 @@ def preencher_previous_travel(page, cliente):
         marcar_checkbox(page, "input[id$='rblPREV_VISA_SAME_CNTRY_IND_0']")
         marcar_checkbox(page, "input[id$='rblPREV_VISA_TEN_PRINT_IND_0']")
 
-    marcar_sim_nao(page, "rblPREV_VISA_CANCELLED_IND", cliente.get('visto_cancelado_revogado', False))
+        # "Visto já cancelado/revogado" só existe no site quando já teve
+        # visto antes (não dá pra cancelar um visto que nunca existiu) —
+        # confirmado ao vivo em 2026-08-23.
+        marcar_sim_nao(page, "rblPREV_VISA_CANCELLED_IND", cliente.get('visto_cancelado_revogado', False))
+
     marcar_sim_nao(page, "rblIV_PETITION_IND", cliente.get('peticao_imigrante', False))
 
     # Não vem do PDF — sem dado extraído, o padrão é sempre "No"
@@ -560,11 +639,14 @@ def preencher_address_phone(page, cliente):
     marcar_checkbox(page, "input[id$='rblMailingAddrSame_0']")
 
     preencher_texto(page, "input[id$='tbxAPP_HOME_TEL']", cliente.get('telefone_principal', ''))
-    if cliente.get('telefone_secundario'):
+    # O rascunho web usa "0" como convenção pra "não tenho esse telefone"
+    # (campo obrigatório no formulário deles) — sem esse tratamento, o
+    # robô jogava o "0" literal no campo em vez de marcar "Does Not Apply".
+    if _tem_telefone_real(cliente.get('telefone_secundario')):
         preencher_texto(page, "input[id$='tbxAPP_MOBILE_TEL']", cliente['telefone_secundario'])
     else:
         marcar_checkbox(page, "input[id$='cbexAPP_MOBILE_TEL_NA']", forcar=True)
-    if cliente.get('telefone_comercial'):
+    if _tem_telefone_real(cliente.get('telefone_comercial')):
         preencher_texto(page, "input[id$='tbxAPP_BUS_TEL']", cliente['telefone_comercial'])
     else:
         marcar_checkbox(page, "input[id$='cbexAPP_BUS_TEL_NA']", forcar=True)
@@ -1077,6 +1159,80 @@ def capturar_application_id(cliente):
               f"(flowClienteId vazio) — anote manualmente: Application ID = {application_id}")
 
 
+# Ids que aparecem em TODA tela do CEAC (menu lateral, botões do site,
+# mecanismo interno do ASP.NET, resquício de widget de tradução do
+# Google) — nunca são campos de dado de verdade, só atrapalham a leitura
+# do "listar". Filtrados por prefixo/sufixo de id em vez de nome exato,
+# porque o id completo muda (tem o ctl00_SiteContentPlaceHolder... na
+# frente).
+_RUIDO_ID_SUFIXOS = (
+    "Hidden1", "__PREVIOUSPAGE", "ddlLanguage", "HDClearSession", "HiddenPageValid",
+    "HiddenSideBarItemClicked", "__LASTFOCUS", "__EVENTTARGET", "__EVENTARGUMENT",
+    "__VIEWSTATE", "__VIEWSTATEGENERATOR", "__SCROLLPOSITIONX", "__SCROLLPOSITIONY",
+    "__VIEWSTATEENCRYPTED", "UpdateButton1", "UpdateButton2", "UpdateButton3",
+    "btnModalHolder", "btnReviewPage", "btnNextPageComplete", "btnWarning",
+    "btnRecover", "btnOkWarning", "btnCancelWarning", "btnClientExit",
+    "btnCancelExitWarning", "ddlSite", "btnChangeSite", "btnCancel",
+)
+_RUIDO_LINK_IDS = (
+    "lbtnContactUs", "lbtnHelp", "lbtnExit", "COMPLETE", "REVIEW", "ESIGN",
+    "GetStarted", "Personal", "Travel", "TravelCompanions", "PreviousUSTravel",
+    "AddressPhone", "PptVisa", "USContact", "Family", "WorkEducationMain",
+    "SecAndBackMain", "hplCopyright", "hplDisclaimers", "hplPaperworkReduction",
+    "hplFbiPrivacyAct",
+)
+
+
+def listar_campos_da_tela(page):
+    """Lista todo input/select/textarea/link visível na tela atual — id,
+    tipo, name e (pra radio/checkbox) se está marcado; pra links, o texto
+    visível (ex.: 'Add Another'). Serve pra mapear uma tela inteira de
+    uma vez (digite 'listar' em qualquer prompt) em vez de abrir o F12 e
+    inspecionar campo por campo. Se der '0 campos', é porque a página
+    estava no meio de um postback nesse instante — digita 'listar' de
+    novo que resolve.
+
+    Filtra o "ruído" que aparece em toda tela do CEAC (menu lateral,
+    botões do site, campos internos do ASP.NET, resquício de widget de
+    tradução do Google) — só mostra o que pode ser um campo de dado de
+    verdade dessa tela específica."""
+    elementos = page.locator("input, select, textarea").all()
+    linhas = []
+    for el in elementos:
+        try:
+            tipo = el.evaluate("e => e.tagName.toLowerCase() === 'select' ? 'select' : (e.tagName.toLowerCase() === 'textarea' ? 'textarea' : e.type)")
+            id_attr = el.get_attribute("id") or ""
+            name_attr = el.get_attribute("name") or ""
+            if not id_attr and not name_attr:
+                continue
+            if tipo == "hidden" or id_attr.startswith("goog-gt-") or id_attr.endswith(_RUIDO_ID_SUFIXOS):
+                continue
+            extra = ""
+            if tipo in ("radio", "checkbox"):
+                extra = " [MARCADO]" if el.is_checked() else ""
+            linhas.append(f"   [{tipo}] id={id_attr!r} name={name_attr!r}{extra}")
+        except Exception:
+            continue
+    print(f"\n📋 {len(linhas)} campo(s) encontrados na tela atual:")
+    for linha in linhas:
+        print(linha)
+
+    links = page.locator("a").all()
+    links_com_texto = []
+    for el in links:
+        try:
+            texto_link = (el.inner_text() or "").strip()
+            id_attr = el.get_attribute("id") or ""
+            if texto_link and id_attr and not id_attr.endswith(_RUIDO_LINK_IDS):
+                links_com_texto.append((texto_link, id_attr))
+        except Exception:
+            continue
+    if links_com_texto:
+        print(f"🔗 {len(links_com_texto)} link(s) com texto:")
+        for texto_link, id_attr in links_com_texto:
+            print(f"   [link {texto_link!r}] id={id_attr!r}")
+
+
 def preencher_ds160():
     cliente = carregar_dados()
     if not cliente:
@@ -1112,12 +1268,22 @@ def preencher_ds160():
         ]
 
         for nome_tela, funcao in etapas:
-            input(f"👉 Quando estiver na tela '{nome_tela}', aperte ENTER aqui... ")
-            try:
-                funcao(page, cliente)
-            except Exception as e:
-                print(f"\n❌ ERRO inesperado na tela '{nome_tela}': {e}")
-                print("   Preencha o que faltar manualmente e siga em frente.")
+            _perguntar(page, f"👉 Quando estiver na tela '{nome_tela}', aperte ENTER aqui (ou 'listar')... ")
+
+            while True:
+                try:
+                    funcao(page, cliente)
+                except Exception as e:
+                    print(f"\n❌ ERRO inesperado na tela '{nome_tela}': {e}")
+                    print("   Preencha o que faltar manualmente e siga em frente.")
+                revisar_pendencias_tela(page, nome_tela)
+                resposta = _perguntar(
+                    page,
+                    "👉 Tela concluída. ENTER pra ir pra próxima, 'repetir' pra rodar essa mesma "
+                    "tela de novo, ou 'listar'... ",
+                )
+                if resposta != "repetir":
+                    break
             print("\n👉 Agora clique em 'Next' até chegar na próxima tela do fluxo.")
 
         revisar_seguranca(cliente)

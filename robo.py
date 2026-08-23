@@ -296,12 +296,24 @@ def preencher_texto(page, seletor, valor):
     ver revisar_pendencias_tela). Usa .first porque algumas telas do CEAC
     têm um segundo elemento oculto com id terminando igual (mecanismo de
     'trocar nacionalidade'), o que faria o seletor por sufixo bater em
-    dois elementos e travar o Playwright."""
+    dois elementos e travar o Playwright.
+
+    Campos <textarea> (as caixas grandes tipo 'Descreva suas funções' /
+    'Explique') usam press_sequentially em vez de fill: alguns desses
+    campos no CEAC parecem só validar valor digitado tecla por tecla
+    (bloqueiam colar/setar direto), então fill() 'preenchia' sem erro
+    mas a página não reconhecia o texto como realmente digitado."""
     if valor is None or valor == "":
         return
     valor_sem_acento = remover_acentos(valor)
     try:
-        page.locator(seletor).first.fill(valor_sem_acento, timeout=6000)
+        loc = page.locator(seletor).first
+        tipo_elemento = loc.evaluate("e => e.tagName.toLowerCase()")
+        if tipo_elemento == "textarea":
+            loc.click(timeout=6000)
+            loc.press_sequentially(valor_sem_acento, timeout=15000)
+        else:
+            loc.fill(valor_sem_acento, timeout=6000)
     except Exception:
         _registrar_alerta("texto", seletor, valor_sem_acento)
 

@@ -674,16 +674,23 @@ def preencher_address_phone(page, cliente):
     print("Marcando endereço de correspondência = mesmo endereço residencial...")
     marcar_checkbox(page, "input[id$='rblMailingAddrSame_0']")
 
-    preencher_texto(page, "input[id$='tbxAPP_HOME_TEL']", cliente.get('telefone_principal', ''))
+    telefone_principal = cliente.get('telefone_principal', '')
+    preencher_texto(page, "input[id$='tbxAPP_HOME_TEL']", telefone_principal)
     # O rascunho web usa "0" como convenção pra "não tenho esse telefone"
     # (campo obrigatório no formulário deles) — sem esse tratamento, o
     # robô jogava o "0" literal no campo em vez de marcar "Does Not Apply".
-    if _tem_telefone_real(cliente.get('telefone_secundario')):
-        preencher_texto(page, "input[id$='tbxAPP_MOBILE_TEL']", cliente['telefone_secundario'])
+    # O CEAC também rejeita ("phone number has already been entered")
+    # quando secundário/comercial é IGUAL ao principal — nesse caso trata
+    # como "não tem" também, em vez de duplicar (decisão do usuário em
+    # 2026-08-23).
+    telefone_secundario = cliente.get('telefone_secundario', '')
+    if _tem_telefone_real(telefone_secundario) and telefone_secundario != telefone_principal:
+        preencher_texto(page, "input[id$='tbxAPP_MOBILE_TEL']", telefone_secundario)
     else:
         marcar_checkbox(page, "input[id$='cbexAPP_MOBILE_TEL_NA']", forcar=True)
-    if _tem_telefone_real(cliente.get('telefone_comercial')):
-        preencher_texto(page, "input[id$='tbxAPP_BUS_TEL']", cliente['telefone_comercial'])
+    telefone_comercial = cliente.get('telefone_comercial', '')
+    if _tem_telefone_real(telefone_comercial) and telefone_comercial != telefone_principal:
+        preencher_texto(page, "input[id$='tbxAPP_BUS_TEL']", telefone_comercial)
     else:
         marcar_checkbox(page, "input[id$='cbexAPP_BUS_TEL_NA']", forcar=True)
 

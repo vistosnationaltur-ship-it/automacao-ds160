@@ -1210,6 +1210,11 @@ def listar_campos_da_tela(page):
             extra = ""
             if tipo in ("radio", "checkbox"):
                 extra = " [MARCADO]" if el.is_checked() else ""
+            if tipo == "select":
+                opcoes = el.evaluate(
+                    "e => Array.from(e.options).map(o => o.value + ' | ' + o.text)"
+                )
+                extra = "\n         opções: " + " ; ".join(opcoes)
             linhas.append(f"   [{tipo}] id={id_attr!r} name={name_attr!r}{extra}")
         except Exception:
             continue

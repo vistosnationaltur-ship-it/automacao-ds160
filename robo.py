@@ -293,12 +293,15 @@ def preencher_texto(page, seletor, valor):
     """Preenche um campo de texto. Se o campo não existir/não estiver
     visível, registra a pendência e segue pro próximo campo (a tela
     inteira roda sem pausar; a revisão acontece toda de uma vez no final,
-    ver revisar_pendencias_tela)."""
+    ver revisar_pendencias_tela). Usa .first porque algumas telas do CEAC
+    têm um segundo elemento oculto com id terminando igual (mecanismo de
+    'trocar nacionalidade'), o que faria o seletor por sufixo bater em
+    dois elementos e travar o Playwright."""
     if valor is None or valor == "":
         return
     valor_sem_acento = remover_acentos(valor)
     try:
-        page.locator(seletor).fill(valor_sem_acento, timeout=3000)
+        page.locator(seletor).first.fill(valor_sem_acento, timeout=3000)
     except Exception:
         _registrar_alerta("texto", seletor, valor_sem_acento)
 
@@ -306,10 +309,12 @@ def preencher_texto(page, seletor, valor):
 def selecionar_dropdown(page, seletor, valor):
     """Tenta selecionar uma opção de <select> testando por label e por value,
     com e sem zero à esquerda (o DS-160 varia isso dependendo do campo).
-    Se nenhuma variação funcionar, registra a pendência e segue em frente."""
+    Se nenhuma variação funcionar, registra a pendência e segue em frente.
+    Usa .first pelo mesmo motivo de preencher_texto (elemento duplicado
+    oculto em algumas telas)."""
     if not valor:
         return
-    loc = page.locator(seletor)
+    loc = page.locator(seletor).first
     valor = str(valor)
     candidatos = [valor, valor.upper(), valor.capitalize()]
     if valor.isdigit():
@@ -332,9 +337,10 @@ def selecionar_dropdown(page, seletor, valor):
 def marcar_checkbox(page, seletor, forcar=False):
     """Clica num checkbox/radio. Se não encontrar, registra a pendência e
     segue em frente (timeout maior que antes — 6s em vez de 3s — porque o
-    CEAC às vezes demora pra terminar o postback da pergunta anterior)."""
+    CEAC às vezes demora pra terminar o postback da pergunta anterior).
+    Usa .first pelo mesmo motivo de preencher_texto/selecionar_dropdown."""
     try:
-        page.locator(seletor).click(force=forcar, timeout=6000)
+        page.locator(seletor).first.click(force=forcar, timeout=6000)
     except Exception:
         _registrar_alerta("checkbox/radio", seletor, "(clique)")
 

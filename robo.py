@@ -1050,8 +1050,23 @@ def preencher_work_education_additional(page, cliente):
 
     marcar_sim_nao(page, "rblMILITARY_SERVICE_IND", cliente.get('serviu_exercito', False))
     if cliente.get('serviu_exercito'):
-        print("⚠️ Cliente serviu ao exército, mas o PDF não traz os detalhes (país/ramo/posto/datas) "
-              "— preencha manualmente os campos 'Provide the following information'.")
+        time.sleep(1.5)  # rblMILITARY_SERVICE_IND dispara postback pra revelar os campos abaixo
+        selecionar_dropdown(page, "select[id$='dtlMILITARY_SERVICE_ctl00_ddlMILITARY_SVC_CNTRY']", cliente.get('servico_militar_pais', 'BRAZIL'))
+        preencher_texto(page, "input[id$='dtlMILITARY_SERVICE_ctl00_tbxMILITARY_SVC_BRANCH']", cliente.get('servico_militar_ramo', ''))
+        preencher_texto(page, "input[id$='dtlMILITARY_SERVICE_ctl00_tbxMILITARY_SVC_RANK']", cliente.get('servico_militar_posicao', ''))
+        preencher_texto(page, "input[id$='dtlMILITARY_SERVICE_ctl00_tbxMILITARY_SVC_SPECIALTY']", cliente.get('servico_militar_especialidade', ''))
+
+        if cliente.get('servico_militar_data_inicio'):
+            dia, mes, ano = cliente['servico_militar_data_inicio'].split('/')
+            selecionar_dropdown(page, "select[id$='dtlMILITARY_SERVICE_ctl00_ddlMILITARY_SVC_FROMDay']", dia.zfill(2))
+            selecionar_dropdown(page, "select[id$='dtlMILITARY_SERVICE_ctl00_ddlMILITARY_SVC_FROMMonth']", MESES_ABREV[str(int(mes))])
+            preencher_texto(page, "input[id$='dtlMILITARY_SERVICE_ctl00_tbxMILITARY_SVC_FROMYear']", ano)
+
+        if cliente.get('servico_militar_data_fim'):
+            dia, mes, ano = cliente['servico_militar_data_fim'].split('/')
+            selecionar_dropdown(page, "select[id$='dtlMILITARY_SERVICE_ctl00_ddlMILITARY_SVC_TODay']", dia.zfill(2))
+            selecionar_dropdown(page, "select[id$='dtlMILITARY_SERVICE_ctl00_ddlMILITARY_SVC_TOMonth']", MESES_ABREV[str(int(mes))])
+            preencher_texto(page, "input[id$='dtlMILITARY_SERVICE_ctl00_tbxMILITARY_SVC_TOYear']", ano)
 
     # Grupo paramilitar/insurgente -> sem dado no PDF, padrão "No"
     marcar_sim_nao(page, "rblINSURGENT_ORG_IND", False)

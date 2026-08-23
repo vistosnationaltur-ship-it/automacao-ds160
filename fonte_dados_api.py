@@ -524,6 +524,14 @@ def mapear_trabalho_educacao(respostas):
     dados["treinamento_arma"] = booleano(respostas, 234)
     dados["treinamento_arma_detalhe"] = texto_opcional(respostas, 236)
     dados["serviu_exercito"] = booleano(respostas, 235)
+    if dados["serviu_exercito"]:
+        pais_militar = endereco(respostas, 237).get("País", "BRASIL")
+        dados["servico_militar_pais"] = "BRAZIL" if pais_militar.upper() in ("BRASIL", "BRAZIL") else pais_militar.upper()
+        dados["servico_militar_ramo"] = texto(respostas, 238)
+        dados["servico_militar_posicao"] = texto(respostas, 239)
+        dados["servico_militar_especialidade"] = texto(respostas, 240)
+        dados["servico_militar_data_inicio"] = data_ddmmaaaa(respostas, 241)
+        dados["servico_militar_data_fim"] = data_ddmmaaaa(respostas, 242)
 
     return dados
 

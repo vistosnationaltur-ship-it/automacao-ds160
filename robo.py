@@ -1111,13 +1111,24 @@ def preencher_work_education_additional(page, cliente):
     marcar_sim_nao(page, "rblORGANIZATION_IND", False)
 
     marcar_sim_nao(page, "rblSPECIALIZED_SKILLS_IND", cliente.get('treinamento_arma', False))
-    if cliente.get('treinamento_arma') and cliente.get('treinamento_arma_detalhe'):
-        time.sleep(0.5)  # ShowHideDiv precisa revelar o campo 'Explain' antes de preencher
-        preencher_texto(page, "[id$='tbxSPECIALIZED_SKILLS_EXPL']", cliente['treinamento_arma_detalhe'])
+    if cliente.get('treinamento_arma'):
+        if cliente.get('treinamento_arma_detalhe'):
+            time.sleep(0.5)  # ShowHideDiv precisa revelar o campo 'Explain' antes de preencher
+            preencher_texto(page, "[id$='tbxSPECIALIZED_SKILLS_EXPL']", cliente['treinamento_arma_detalhe'])
+        else:
+            # Cliente respondeu "Sim" mas não escreveu a explicação no
+            # rascunho — não tem o que o robô preencher sozinho aqui.
+            _registrar_alerta("texto", "tbxSPECIALIZED_SKILLS_EXPL", "(sem explicação no rascunho)")
 
     marcar_sim_nao(page, "rblMILITARY_SERVICE_IND", cliente.get('serviu_exercito', False))
     if cliente.get('serviu_exercito'):
-        time.sleep(2.5)  # rblMILITARY_SERVICE_IND dispara postback pra revelar os campos abaixo
+        # Sleep fixo (mesmo 2.5s) não é confiável — o postback do CEAC varia
+        # de duração. Espera ativamente o campo aparecer em vez de torcer
+        # pelo tempo certo.
+        try:
+            page.wait_for_selector("select[id$='dtlMILITARY_SERVICE_ctl00_ddlMILITARY_SVC_CNTRY']", state="attached", timeout=10000)
+        except Exception:
+            pass
         selecionar_dropdown(page, "select[id$='dtlMILITARY_SERVICE_ctl00_ddlMILITARY_SVC_CNTRY']", cliente.get('servico_militar_pais', 'BRAZIL'))
         preencher_texto(page, "input[id$='dtlMILITARY_SERVICE_ctl00_tbxMILITARY_SVC_BRANCH']", cliente.get('servico_militar_ramo', ''))
         preencher_texto(page, "input[id$='dtlMILITARY_SERVICE_ctl00_tbxMILITARY_SVC_RANK']", cliente.get('servico_militar_posicao', ''))

@@ -1107,6 +1107,15 @@ SEGURANCA_ID_MAP = {
     # Security and Background: Part 4 — confirmadas ao vivo em 2026-08-23
     "fraude_visto": "rblImmigrationFraud",
     "audiencia_deportacao": "rblDeport",
+    # Security and Background: Part 5 — confirmadas ao vivo em 2026-08-23.
+    # "ultrapassou_prazo_visto" e "escola_publica_sem_reembolso" não
+    # apareceram nessa tela pro Alex Cruz (visto B1/B2) — parecem
+    # condicionais ao tipo de visto (a de escola pública só deve valer
+    # pra visto de estudante F/M). Deixados de fora por ora; se
+    # aparecerem pra outro cliente, precisam de mapeamento novo.
+    "custodia_crianca_eua": "rblChildCustody",
+    "votou_ilegalmente_eua": "rblVotingViolation",
+    "renunciou_cidadania_evitar_imposto": "rblRenounceExp",
 }
 
 # Id do <textarea> de explicação de cada pergunta (só existem quando a
@@ -1133,6 +1142,9 @@ SEGURANCA_EXPL_ID_MAP = {
     "violacoes_liberdade_religiosa": "tbxReligiousFreedom",
     "fraude_visto": "tbxImmigrationFraud",
     "audiencia_deportacao": "tbxDeport_EXPL",
+    "custodia_crianca_eua": "tbxChildCustody",
+    "votou_ilegalmente_eua": "tbxVotingViolation",
+    "renunciou_cidadania_evitar_imposto": "tbxRenounceExp",
 }
 
 
@@ -1222,6 +1234,24 @@ def preencher_seguranca_parte4(page, cliente):
     preencher_seguranca_confirmada(page, cliente, ["fraude_visto", "audiencia_deportacao"])
 
     print("✅ Página Security and Background: Part 4 preenchida (confira os avisos acima, se houver)!")
+
+
+def preencher_seguranca_parte5(page, cliente):
+    """Preenche a tela Security and Background: Part 5 (ids confirmados ao vivo em 2026-08-23).
+
+    Essa é a última parte de Segurança — depois dela o fluxo do CEAC vai
+    pra Review/Sign. "ultrapassou_prazo_visto" e "escola_publica_sem_reembolso"
+    não apareceram nessa tela pro Alex Cruz (B1/B2) e ficaram de fora do
+    mapeamento; parecem condicionais ao tipo de visto."""
+    print("\n▶️ Injetando dados na tela Security and Background: Part 5...")
+    page.set_default_timeout(5000)
+
+    preencher_seguranca_confirmada(
+        page, cliente,
+        ["custodia_crianca_eua", "votou_ilegalmente_eua", "renunciou_cidadania_evitar_imposto"],
+    )
+
+    print("✅ Página Security and Background: Part 5 preenchida (confira os avisos acima, se houver)!")
 
 
 def revisar_seguranca(cliente):
@@ -1414,6 +1444,7 @@ def preencher_ds160():
             ("Security and Background: Part 2", preencher_seguranca_parte2),
             ("Security and Background: Part 3", preencher_seguranca_parte3),
             ("Security and Background: Part 4", preencher_seguranca_parte4),
+            ("Security and Background: Part 5", preencher_seguranca_parte5),
         ]
 
         for nome_tela, funcao in etapas:

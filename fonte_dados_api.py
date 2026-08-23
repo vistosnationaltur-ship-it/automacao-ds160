@@ -420,10 +420,14 @@ def mapear_familia(respostas):
     dados["pai_nome"] = texto(respostas, 164)
     dados["pai_data_nascimento"] = data_ddmmaaaa(respostas, 165)
     dados["pai_esta_eua"] = booleano(respostas, 168)
+    if dados["pai_esta_eua"]:
+        dados["pai_status_eua"] = texto(respostas, 307)
 
     dados["mae_nome"] = texto(respostas, 166)
     dados["mae_data_nascimento"] = data_ddmmaaaa(respostas, 167)
     dados["mae_esta_eua"] = booleano(respostas, 169)
+    if dados["mae_esta_eua"]:
+        dados["mae_status_eua"] = texto(respostas, 308)
 
     dados["parente_1_grau_eua"] = booleano(respostas, 171)
     if dados["parente_1_grau_eua"]:

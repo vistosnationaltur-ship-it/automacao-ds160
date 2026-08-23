@@ -848,6 +848,12 @@ def preencher_family_relatives(page, cliente):
         preencher_texto(page, "input[id$='tbxFathersDOBYear']", ano)
     marcar_sim_nao(page, "rblFATHER_LIVE_IN_US_IND", cliente.get('pai_esta_eua', False))
     time.sleep(1.5)  # rblFATHER_LIVE_IN_US_IND dispara um postback; espera terminar
+    if cliente.get('pai_esta_eua'):
+        # ddlFATHER_US_STATUS não foi confirmado ao vivo ainda (nenhum
+        # cliente testado até 2026-08-23 tinha pai_esta_eua=Sim) — por
+        # simetria com ddlMOTHER_US_STATUS (esse sim confirmado), mas
+        # revisar se der alerta.
+        selecionar_dropdown(page, "select[id$='ddlFATHER_US_STATUS']", traduzir_status_parente_eua(cliente.get('pai_status_eua', '')))
 
     nome_mae = cliente.get('mae_nome', '').split()
     preencher_texto(page, "input[id$='tbxMOTHER_GIVEN_NAME']", nome_mae[0] if nome_mae else '')
@@ -860,6 +866,8 @@ def preencher_family_relatives(page, cliente):
         preencher_texto(page, "input[id$='tbxMothersDOBYear']", ano)
     marcar_sim_nao(page, "rblMOTHER_LIVE_IN_US_IND", cliente.get('mae_esta_eua', False))
     time.sleep(1.5)  # rblMOTHER_LIVE_IN_US_IND também dispara um postback; espera terminar
+    if cliente.get('mae_esta_eua'):
+        selecionar_dropdown(page, "select[id$='ddlMOTHER_US_STATUS']", traduzir_status_parente_eua(cliente.get('mae_status_eua', '')))
 
     marcar_sim_nao(page, "rblUS_IMMED_RELATIVE_IND", cliente.get('parente_1_grau_eua', False))
     if cliente.get('parente_1_grau_eua'):

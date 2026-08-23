@@ -829,7 +829,17 @@ def preencher_family_relatives(page, cliente):
         status_en = traduzir_status_parente_eua(cliente.get('parente_1_grau_status', ''))
         selecionar_dropdown(page, "select[id$='dlUSRelatives_ctl00_ddlUS_REL_STATUS']", status_en)
 
-    marcar_sim_nao(page, "rblUS_OTHER_RELATIVE_IND", cliente.get('outro_parente_eua', False))
+    # HIPÓTESE ainda não 100% confirmada (diferente das outras
+    # condicionais já validadas via listar): em 2026-08-23, com
+    # parente_1_grau_eua = Sim, o campo rblUS_OTHER_RELATIVE_IND não
+    # apareceu na tela (listar_campos_da_tela não mostrou nenhum
+    # elemento com esse id) — parece que o CEAC só pergunta "algum outro
+    # parente nos EUA" quando a pergunta anterior (parente imediato) foi
+    # "Não". Se um cliente com parente_1_grau_eua=Sim aparecer com esse
+    # campo alertando de novo, essa hipótese está errada e precisa ser
+    # revista.
+    if not cliente.get('parente_1_grau_eua'):
+        marcar_sim_nao(page, "rblUS_OTHER_RELATIVE_IND", cliente.get('outro_parente_eua', False))
 
     print("✅ Página Family Information: Relatives preenchida (confira os avisos ⚠️ acima, se houver)!")
 

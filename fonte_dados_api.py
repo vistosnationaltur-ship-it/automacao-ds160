@@ -277,10 +277,9 @@ def mapear_pagina_1(respostas):
         dados["pagador_empresa_relacionamento"] = texto(respostas, 294)
         end = endereco(respostas, 295)
         dados["pagador_empresa_endereco_linha1"] = end.get("Rua") or "a confirmar"
-        cidade = end.get("Cidade", "a confirmar")
-        estado_e = end.get("Estado", "")
-        cep = end.get("Código postal", "")
-        dados["pagador_empresa_endereco_cidade_uf_cep"] = f"{cidade}, {estado_e} {cep}".strip()
+        dados["pagador_empresa_endereco_cidade"] = end.get("Cidade", "a confirmar")
+        dados["pagador_empresa_endereco_estado"] = end.get("Estado", "")
+        dados["pagador_empresa_endereco_cep"] = end.get("Código postal", "")
         dados["pagador_empresa_endereco_pais"] = end.get("País", "BRASIL")
 
     if dados["quem_paga"] == "O":
@@ -299,10 +298,9 @@ def mapear_pagina_1(respostas):
         )
         if end:
             dados["pagador_pessoa_endereco_linha1"] = end.get("Rua") or "a confirmar"
-            cidade = end.get("Cidade", "a confirmar")
-            estado_e = end.get("Estado", "")
-            cep = end.get("Código postal", "")
-            dados["pagador_pessoa_endereco_cidade_uf_cep"] = f"{cidade}, {estado_e} {cep}".strip()
+            dados["pagador_pessoa_endereco_cidade"] = end.get("Cidade", "a confirmar")
+            dados["pagador_pessoa_endereco_estado"] = end.get("Estado", "")
+            dados["pagador_pessoa_endereco_cep"] = end.get("Código postal", "")
             dados["pagador_pessoa_endereco_pais"] = end.get("País", "BRASIL")
 
     return dados
@@ -401,10 +399,9 @@ def mapear_endereco_contato(respostas):
         end = endereco(respostas, 303)
         dados["contato_eua_endereco_linha1"] = end.get("Rua") or "a confirmar"
         dados["contato_eua_endereco_linha2"] = end.get("Bairro e Complemento", "")
-        cidade = end.get("Cidade", "a confirmar")
-        estado_e = end.get("Estado", "")
-        cep = end.get("Código postal", "")
-        dados["contato_eua_cidade_uf_cep"] = f"{cidade}, {estado_e} {cep}".strip()
+        dados["contato_eua_endereco_cidade"] = end.get("Cidade", "a confirmar")
+        dados["contato_eua_endereco_estado"] = end.get("Estado", "")
+        dados["contato_eua_endereco_cep"] = end.get("Código postal", "")
         dados["contato_eua_endereco_pais"] = end.get("País", "a confirmar")
 
         dados["contato_eua_relacionamento"] = texto(respostas, 161)
@@ -484,10 +481,9 @@ def mapear_trabalho_educacao(respostas):
     end = endereco(respostas, 201)
     dados["trabalho_endereco_linha1"] = end.get("Rua") or "a confirmar"
     dados["trabalho_endereco_bairro"] = end.get("Bairro e Complemento", "a confirmar")
-    cidade = end.get("Cidade", "a confirmar")
-    estado_e = end.get("Estado", "")
-    cep = end.get("Código postal", "")
-    dados["trabalho_endereco_cidade_uf_cep"] = f"{cidade}, {estado_e} {cep}".strip()
+    dados["trabalho_endereco_cidade"] = end.get("Cidade", "a confirmar")
+    dados["trabalho_endereco_estado"] = end.get("Estado", "")
+    dados["trabalho_endereco_cep"] = end.get("Código postal", "")
     dados["trabalho_endereco_pais"] = end.get("País", "BRASIL")
 
     dados["trabalhou_outra_empresa_5anos"] = booleano(respostas, 207)
@@ -498,10 +494,9 @@ def mapear_trabalho_educacao(respostas):
 
         end_ant = endereco(respostas, 209)
         dados["trabalho_anterior_endereco_linha1"] = end_ant.get("Rua") or "a confirmar"
-        cidade_a = end_ant.get("Cidade", "a confirmar")
-        estado_a = end_ant.get("Estado", "")
-        cep_a = end_ant.get("Código postal", "")
-        dados["trabalho_anterior_endereco_cidade_uf_cep"] = f"{cidade_a}, {estado_a} {cep_a}".strip()
+        dados["trabalho_anterior_endereco_cidade"] = end_ant.get("Cidade", "a confirmar")
+        dados["trabalho_anterior_endereco_estado"] = end_ant.get("Estado", "")
+        dados["trabalho_anterior_endereco_cep"] = end_ant.get("Código postal", "")
         dados["trabalho_anterior_endereco_pais"] = end_ant.get("País", "BRASIL")
 
         dados["trabalho_anterior_data_inicio"] = data_ddmmaaaa(respostas, 212)
@@ -513,10 +508,9 @@ def mapear_trabalho_educacao(respostas):
 
     end_inst = endereco(respostas, 219)
     dados["instituicao_endereco_linha1"] = end_inst.get("Rua") or "a confirmar"
-    cidade_i = end_inst.get("Cidade", "a confirmar")
-    estado_i = end_inst.get("Estado", "")
-    cep_i = end_inst.get("Código postal", "")
-    dados["instituicao_endereco_cidade_uf_cep"] = f"{cidade_i}, {estado_i} {cep_i}".strip()
+    dados["instituicao_endereco_cidade"] = end_inst.get("Cidade", "a confirmar")
+    dados["instituicao_endereco_estado"] = end_inst.get("Estado", "")
+    dados["instituicao_endereco_cep"] = end_inst.get("Código postal", "")
     dados["instituicao_endereco_pais"] = end_inst.get("País", "BRASIL")
 
     dados["curso_nome"] = texto_opcional(respostas, 220)

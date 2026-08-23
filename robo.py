@@ -483,15 +483,9 @@ def preencher_travel(page, cliente):
         marcar_checkbox(page, "input[id$='rblPayerAddrSameAsInd_1']")
         preencher_texto(page, "input[id$='tbxPayerStreetAddress1']", cliente.get('pagador_empresa_endereco_linha1', ''))
 
-        cidade_uf_cep = cliente.get('pagador_empresa_endereco_cidade_uf_cep', '')
-        match_cuc = re.match(r"^(.*),\s*([^,]+?)\s+(\d{5,9})$", cidade_uf_cep.strip())
-        if match_cuc:
-            preencher_texto(page, "input[id$='tbxPayerCity']", match_cuc.group(1))
-            preencher_texto(page, "input[id$='tbxPayerStateProvince']", match_cuc.group(2))
-            preencher_texto(page, "input[id$='tbxPayerPostalZIPCode']", match_cuc.group(3))
-        else:
-            print(f"⚠️ Não consegui separar cidade/UF/CEP de '{cidade_uf_cep}' — preencha manualmente.")
-
+        preencher_texto(page, "input[id$='tbxPayerCity']", cliente.get('pagador_empresa_endereco_cidade', ''))
+        preencher_texto(page, "input[id$='tbxPayerStateProvince']", cliente.get('pagador_empresa_endereco_estado', ''))
+        preencher_texto(page, "input[id$='tbxPayerPostalZIPCode']", cliente.get('pagador_empresa_endereco_cep', ''))
         selecionar_dropdown(page, "select[id$='ddlPayerCountry']", "BRAZIL")
 
     elif cliente.get('quem_paga') == 'O':
@@ -517,14 +511,9 @@ def preencher_travel(page, cliente):
 
         if endereco_diferente:
             preencher_texto(page, "input[id$='tbxPayerStreetAddress1']", cliente.get('pagador_pessoa_endereco_linha1', ''))
-            cidade_uf_cep = cliente.get('pagador_pessoa_endereco_cidade_uf_cep', '')
-            match_cuc = re.match(r"^(.*),\s*([^,]+?)\s+(\d{5,9})$", cidade_uf_cep.strip())
-            if match_cuc:
-                preencher_texto(page, "input[id$='tbxPayerCity']", match_cuc.group(1))
-                preencher_texto(page, "input[id$='tbxPayerStateProvince']", match_cuc.group(2))
-                preencher_texto(page, "input[id$='tbxPayerPostalZIPCode']", match_cuc.group(3))
-            else:
-                print(f"⚠️ Não consegui separar cidade/UF/CEP de '{cidade_uf_cep}' — preencha manualmente.")
+            preencher_texto(page, "input[id$='tbxPayerCity']", cliente.get('pagador_pessoa_endereco_cidade', ''))
+            preencher_texto(page, "input[id$='tbxPayerStateProvince']", cliente.get('pagador_pessoa_endereco_estado', ''))
+            preencher_texto(page, "input[id$='tbxPayerPostalZIPCode']", cliente.get('pagador_pessoa_endereco_cep', ''))
             selecionar_dropdown(page, "select[id$='ddlPayerCountry']", "BRAZIL")
 
     print("✅ Página Travel Information preenchida (confira os avisos ⚠️ acima, se houver)!")
@@ -769,18 +758,16 @@ def preencher_us_contact(page, cliente):
         rua_completa = f"{linha1}, {linha2}" if linha2 else linha1
         preencher_texto(page, "input[id$='tbxUS_POC_ADDR_LN1']", rua_completa)
 
-        cidade_uf_cep = cliente.get('contato_eua_cidade_uf_cep', '')
-        match_cuc = re.match(r"^(.*),\s*([^,]+?)\s+(\d{5,9})$", cidade_uf_cep.strip())
-        if match_cuc:
-            preencher_texto(page, "input[id$='tbxUS_POC_ADDR_CITY']", match_cuc.group(1))
-            estado_pt = re.sub(r"[^A-Za-zÀ-ÿ ]", "", match_cuc.group(2)).strip()
-            estado_en = ESTADOS_EUA_PT_EN.get(remover_acentos(estado_pt).upper(), estado_pt)
-            selecionar_dropdown(page, "select[id$='ddlUS_POC_ADDR_STATE']", estado_en)
-            preencher_texto(page, "input[id$='tbxUS_POC_ADDR_POSTAL_CD']", match_cuc.group(3))
-        else:
-            preencher_texto(page, "input[id$='tbxUS_POC_ADDR_CITY']", cidade_uf_cep)
-            print(f"⚠️ Não consegui separar cidade/estado/CEP do contato de '{cidade_uf_cep}' "
-                  f"— confira City/State/ZIP manualmente.")
+        preencher_texto(page, "input[id$='tbxUS_POC_ADDR_CITY']", cliente.get('contato_eua_endereco_cidade', ''))
+        # ddlUS_POC_ADDR_STATE só tem estados americanos — se o contato
+        # mora fora dos EUA (comum: contato é um parente/amigo no Brasil),
+        # não existe opção certa nesse dropdown. Tenta traduzir; se não
+        # bater com nenhum estado americano, cai no alerta pra revisão
+        # humana (é uma limitação do próprio formulário DS-160, não bug).
+        estado_pt = cliente.get('contato_eua_endereco_estado', '')
+        estado_en = ESTADOS_EUA_PT_EN.get(remover_acentos(estado_pt).upper(), estado_pt)
+        selecionar_dropdown(page, "select[id$='ddlUS_POC_ADDR_STATE']", estado_en)
+        preencher_texto(page, "input[id$='tbxUS_POC_ADDR_POSTAL_CD']", cliente.get('contato_eua_endereco_cep', ''))
     else:
         marcar_checkbox(page, "input[id$='cbxUS_POC_NAME_NA']", forcar=True)
         time.sleep(1.5)  # cbxUS_POC_NAME_NA dispara um postback; espera terminar
@@ -920,15 +907,9 @@ def preencher_work_education_present(page, cliente):
     preencher_texto(page, "input[id$='tbxEmpSchName']", limpar_caracteres_nome(cliente.get('trabalho_empresa_nome', '')))
     preencher_texto(page, "input[id$='tbxEmpSchAddr1']", limpar_caracteres_endereco(cliente.get('trabalho_endereco_linha1', '')))
 
-    cidade_uf_cep = cliente.get('trabalho_endereco_cidade_uf_cep', '')
-    match_cuc = re.match(r"^(.*),\s*([^,]+?)\s+(\d{5,9})$", cidade_uf_cep.strip())
-    if match_cuc:
-        preencher_texto(page, "input[id$='tbxEmpSchCity']", match_cuc.group(1))
-        preencher_texto(page, "input[id$='tbxWORK_EDUC_ADDR_STATE']", match_cuc.group(2))
-        preencher_texto(page, "input[id$='tbxWORK_EDUC_ADDR_POSTAL_CD']", match_cuc.group(3))
-    else:
-        preencher_texto(page, "input[id$='tbxEmpSchCity']", cidade_uf_cep)
-        print(f"⚠️ Não consegui separar cidade/UF/CEP do trabalho de '{cidade_uf_cep}' — confira State/ZIP.")
+    preencher_texto(page, "input[id$='tbxEmpSchCity']", cliente.get('trabalho_endereco_cidade', ''))
+    preencher_texto(page, "input[id$='tbxWORK_EDUC_ADDR_STATE']", cliente.get('trabalho_endereco_estado', ''))
+    preencher_texto(page, "input[id$='tbxWORK_EDUC_ADDR_POSTAL_CD']", cliente.get('trabalho_endereco_cep', ''))
 
     selecionar_dropdown(page, "select[id$='ddlEmpSchCountry']", "BRAZIL")
     preencher_texto(page, "input[id$='tbxWORK_EDUC_TEL']", cliente.get('trabalho_telefone', ''))
@@ -962,16 +943,9 @@ def preencher_work_education_previous(page, cliente):
         preencher_texto(page, "input[id$='dtlPrevEmpl_ctl00_tbEmployerName']", limpar_caracteres_nome(cliente.get('trabalho_anterior_empresa_nome', '')))
         preencher_texto(page, "input[id$='dtlPrevEmpl_ctl00_tbEmployerStreetAddress1']", limpar_caracteres_endereco(cliente.get('trabalho_anterior_endereco_linha1', '')))
 
-        cidade_uf_cep = cliente.get('trabalho_anterior_endereco_cidade_uf_cep', '')
-        match_cuc = re.match(r"^(.*),\s*([^,]+?)\s+(\d{5,9})$", cidade_uf_cep.strip())
-        if match_cuc:
-            preencher_texto(page, "input[id$='dtlPrevEmpl_ctl00_tbEmployerCity']", match_cuc.group(1))
-            preencher_texto(page, "input[id$='dtlPrevEmpl_ctl00_tbxPREV_EMPL_ADDR_STATE']", match_cuc.group(2))
-            preencher_texto(page, "input[id$='dtlPrevEmpl_ctl00_tbxPREV_EMPL_ADDR_POSTAL_CD']", match_cuc.group(3))
-        else:
-            preencher_texto(page, "input[id$='dtlPrevEmpl_ctl00_tbEmployerCity']", cidade_uf_cep)
-            print(f"⚠️ Não consegui separar cidade/estado/CEP do trabalho anterior de '{cidade_uf_cep}' "
-                  f"— confira State/ZIP.")
+        preencher_texto(page, "input[id$='dtlPrevEmpl_ctl00_tbEmployerCity']", cliente.get('trabalho_anterior_endereco_cidade', ''))
+        preencher_texto(page, "input[id$='dtlPrevEmpl_ctl00_tbxPREV_EMPL_ADDR_STATE']", cliente.get('trabalho_anterior_endereco_estado', ''))
+        preencher_texto(page, "input[id$='dtlPrevEmpl_ctl00_tbxPREV_EMPL_ADDR_POSTAL_CD']", cliente.get('trabalho_anterior_endereco_cep', ''))
 
         selecionar_dropdown(page, "select[id$='dtlPrevEmpl_ctl00_DropDownList2']", "BRAZIL")
         preencher_texto(page, "input[id$='dtlPrevEmpl_ctl00_tbEmployerPhone']", cliente.get('trabalho_anterior_telefone', ''))
@@ -1009,15 +983,9 @@ def preencher_work_education_previous(page, cliente):
         preencher_texto(page, "input[id$='dtlPrevEduc_ctl00_tbxSchoolName']", cliente.get('instituicao_nome', ''))
         preencher_texto(page, "input[id$='dtlPrevEduc_ctl00_tbxSchoolAddr1']", cliente.get('instituicao_endereco_linha1', ''))
 
-        cidade_uf_cep = cliente.get('instituicao_endereco_cidade_uf_cep', '')
-        match_cuc = re.match(r"^(.*),\s*([^,]+?)\s+(\d{5,9})$", cidade_uf_cep.strip())
-        if match_cuc:
-            preencher_texto(page, "input[id$='dtlPrevEduc_ctl00_tbxSchoolCity']", match_cuc.group(1))
-            preencher_texto(page, "input[id$='dtlPrevEduc_ctl00_tbxEDUC_INST_ADDR_STATE']", match_cuc.group(2))
-            preencher_texto(page, "input[id$='dtlPrevEduc_ctl00_tbxEDUC_INST_POSTAL_CD']", match_cuc.group(3))
-        else:
-            preencher_texto(page, "input[id$='dtlPrevEduc_ctl00_tbxSchoolCity']", cidade_uf_cep)
-            print(f"⚠️ Não consegui separar cidade/UF/CEP da instituição de '{cidade_uf_cep}' — confira State/ZIP.")
+        preencher_texto(page, "input[id$='dtlPrevEduc_ctl00_tbxSchoolCity']", cliente.get('instituicao_endereco_cidade', ''))
+        preencher_texto(page, "input[id$='dtlPrevEduc_ctl00_tbxEDUC_INST_ADDR_STATE']", cliente.get('instituicao_endereco_estado', ''))
+        preencher_texto(page, "input[id$='dtlPrevEduc_ctl00_tbxEDUC_INST_POSTAL_CD']", cliente.get('instituicao_endereco_cep', ''))
 
         selecionar_dropdown(page, "select[id$='dtlPrevEduc_ctl00_ddlSchoolCountry']", "BRAZIL")
         preencher_texto(page, "input[id$='dtlPrevEduc_ctl00_tbxSchoolCourseOfStudy']", cliente.get('curso_nome', ''))
